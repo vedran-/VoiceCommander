@@ -401,9 +401,60 @@ class GroqWhisperService:
                 results = self.WebSearch(query)
                 return f"Search results for '{query}':\n{results}"
             return "Invalid search format. Use: SEARCH 'query'"
-            
-        # Remaining commands kept as they were...
         
+        # WRITE_FILE command - write content to a file
+        if response.startswith("WRITE_FILE "):
+            # Extract filename between single quotes
+            filename_match = re.search(r"WRITE_FILE '(.*?)'", response)
+            if not filename_match:
+                return "Invalid file write format. Use: WRITE_FILE 'filename' ```content```"
+                
+            filename = filename_match.group(1)
+            
+            # Extract content between triple backticks
+            content_match = re.search(r"```([\s\S]*?)```", response)
+            content = content_match.group(1) if content_match else ""
+            
+            # Make the path safe by resolving it inside the sandbox directory
+            safe_path = os.path.join(config.LLM_SANDBOX_WORKING_FOLDER, filename)
+            
+            try:
+                # Create directory if doesn't exist
+                os.makedirs(os.path.dirname(safe_path), exist_ok=True)
+                
+                # Write the content to the file
+                with open(safe_path, 'w', encoding='utf-8') as f:
+                    f.write(content)
+                    
+                return f"File '{filename}' written successfully."
+            except Exception as e:
+                return f"Error writing file: {e}"
+                
+        # RUN_SCRIPT command - run a script file
+        if response.startswith("RUN_SCRIPT "):
+            # Extract filename between single quotes
+            match = re.search(r"RUN_SCRIPT '(.*?)'", response)
+            if not match:
+                return "Invalid script format. Use: RUN_SCRIPT 'filename'"
+                
+            script_name = match.group(1)
+            
+            # Make the path safe by resolving it inside the sandbox directory
+            script_path = os.path.join(config.LLM_SANDBOX_WORKING_FOLDER, script_name)
+            
+            if not os.path.exists(script_path):
+                return f"Script '{script_name}' not found."
+                
+            try:
+                stdout, stderr = self.run_script_independently(script_path)
+                
+                if stderr:
+                    return f"Script ran with errors:\n{stderr}"
+                    
+                return f"Script '{script_name}' executed successfully.\nOutput: {stdout}"
+            except Exception as e:
+                return f"Error running script: {e}"
+            
         # RESPOND_TO_USER command - general response
         if response.startswith("RESPOND_TO_USER "):
             # Remove the command and return the rest

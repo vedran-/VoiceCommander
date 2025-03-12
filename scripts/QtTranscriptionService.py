@@ -3,6 +3,7 @@ import os
 import string
 import pyperclip
 import pyautogui
+import pygame
 import wave
 from . import GroqWhisperService
 from . import config
@@ -31,6 +32,13 @@ class QtTranscriptionService(QObject):
         self.vosk_service = vosk_service
         self.audio_service = audio_service
         os.makedirs(config.AUDIO_FILES_SAVE_FOLDER, exist_ok=True)
+
+        # Initialize PyGame for sound playback
+        if not pygame.get_init():
+            pygame.init()
+        pygame.mixer.init()
+        self.ping_sound = pygame.mixer.Sound("c:/pj/projects/VoiceCommander/assets/snd_fragment_retrievewav-14728.mp3")
+        self.ping_sound.set_volume(0.5)
 
         # Create GroqWhisperService and provide a reference to this service
         self.groq_whisper_service = GroqWhisperService.GroqWhisperService()
@@ -161,6 +169,9 @@ class QtTranscriptionService(QObject):
             whisper_text = self.groq_whisper_service.TranscribeAudio(audio_data)
             if whisper_text is None:
                 return
+
+            # Play notification sound
+            self.ping_sound.play()
 
             # Handle special case for unmute command
             if whisper_text.lower().startswith("unmute"):
