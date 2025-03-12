@@ -1,0 +1,9 @@
+pyaudio
+pyperclip
+vosk
+groq
+googlesearch-python
+selenium
+keyboard
+pynput
+pygame

@@ -1,0 +1,9 @@
+/scripts/__pycache__
+/vosk_models
+/scripts/transcriptions
+/.idea
+/build
+/transcriptions
+/dist
+/llm_sandbox
+/Voice_Commander.egg-info
