@@ -6,19 +6,17 @@ def main():
     from . import AudioService
     from . import TranscriptionService
 
-    print("Voice Commander v0.2.3\n")
+    print("Voice Commander v0.2.5\n")
     print("Usage: vc [--llm] [-d DEVICE_INDEX_OR_NAME] [-v | --verbose]\n"
               "Press Ctrl+C to stop recording and transcribing. The transcribed text will be copied to the clipboard.\n")
 
     import argparse
     from . import config
     parser = argparse.ArgumentParser(description="Voice Commander")
-    parser.add_argument("--llm", action="store_true", help="Enable LLM processing")
     parser.add_argument("-d", "--device", help="Audio input device index or name substring to use")
     parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose output")
     args = parser.parse_args()
 
-    config.USE_LLM = args.llm
     config.VERBOSE_OUTPUT = args.verbose
 
     # Configure logging levels based on verbose flag
@@ -42,8 +40,18 @@ def main():
     
     audio_service = AudioService.AudioService(device_param)
     
+    # Create the transcription service. This will also initialize the keyboard handlers:
+    # - Local shortcuts using PyGame (only works when app has focus and only detects physical key presses)
+    # - Global shortcuts using pynput (works system-wide with modifier keys)
+    # 
+    # The PyGame approach for local shortcuts provides several advantages:
+    # 1. Only works when the application window has focus
+    # 2. Can distinguish between physical key presses and programmatically pasted text
+    # 3. Properly handles modifier keys like Alt, Ctrl, and Shift
     transcription_service = TranscriptionService.TranscriptionService(vosk_service, audio_service)
     
+    # Start transcription - this runs the main application loop which also checks
+    # for local keyboard input in a non-blocking way through PyGame events
     transcription_service.Transcribe()
 
 if __name__ == "__main__":

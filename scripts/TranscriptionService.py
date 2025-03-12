@@ -23,6 +23,13 @@ class TranscriptionService:
         self.audio_service = audio_service
         os.makedirs(config.AUDIO_FILES_SAVE_FOLDER, exist_ok=True)
 
+        # Initialize PyGame early for both sound and keyboard handling
+        if not pygame.get_init():
+            pygame.init()
+        pygame.mixer.init()
+        self.ping_sound = pygame.mixer.Sound("c:/pj/projects/VoiceCommander/assets/snd_fragment_retrievewav-14728.mp3")
+        self.ping_sound.set_volume(0.5)
+
         self.groq_whisper_service = GroqWhisperService.GroqWhisperService()
         
         # Transcription state control
@@ -37,10 +44,6 @@ class TranscriptionService:
         # Give GroqWhisperService a reference to the keyboard service
         # This allows it to control transcription via voice commands
         self.groq_whisper_service.keyboard_service = self.keyboard_service
-
-        pygame.mixer.init()
-        self.ping_sound = pygame.mixer.Sound("c:/pj/projects/VoiceCommander/assets/snd_fragment_retrievewav-14728.mp3")
-        self.ping_sound.set_volume(0.5)
 
     def pause_transcription(self):
         """Pause the transcription process"""
@@ -74,6 +77,10 @@ class TranscriptionService:
         
         self.audio_service.StartRecording()
 
+        print("Transcription started. Listening for keyboard shortcuts and voice commands.")
+        print("PyGame window must have focus for local keyboard shortcuts to work.")
+        print("Click on the PyGame window to give it focus for local shortcuts.")
+
         rec = KaldiRecognizer(self.vosk_service.model, self.audio_service.FRAME_RATE)
         rec.SetWords(True)
         rec.SetPartialWords(True)
@@ -83,8 +90,17 @@ class TranscriptionService:
         rec.SetNLSML(False)
         rec.Reset()
 
+        # Make sure pygame processes its events 
+        pygame.event.pump()
+
         try:
             while True:
+                # Process any pending PyGame events
+                pygame.event.pump()
+                
+                # Check for local keyboard input (non-blocking)
+                self.keyboard_service.check_local_keys()
+                
                 # Skip processing if transcription is paused
                 if not self.is_transcribing:
                     time.sleep(0.1)  # Sleep to avoid CPU spinning
@@ -133,7 +149,7 @@ class TranscriptionService:
             self.groq_whisper_service.mute_llm = False
 
         timestamp = datetime.now().strftime("%H:%M:%S")
-        print(f"{timestamp} > \033[93m{whisper_text}\033[0m")
+        print(f"{timestamp}> \033[93m{whisper_text}\033[0m")
 
         # Copy the recognized text to the clipboard
         pyperclip.copy(whisper_text + ' ')
@@ -143,7 +159,7 @@ class TranscriptionService:
             pyautogui.hotkey('ctrl', 'v')
         
         # Send the text to LLM for further processing
-        if config.USE_LLM and self.groq_whisper_service.mute_llm == False:
+        if self.groq_whisper_service.mute_llm == False:
             self.groq_whisper_service.AddUserMessage(whisper_text)
 
         # Save the accumulated audio as a .wav file

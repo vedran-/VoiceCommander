@@ -7,3 +7,4 @@ selenium
 keyboard
 pynput
 pygame
+PyQt6>=6.4.0

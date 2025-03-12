@@ -19,16 +19,18 @@ except ImportError:
     has_window_focus_detection = False
     logger.warning("Window focus detection not available - install pygetwindow package for better functionality")
 
-# Use different import approach to avoid conflicts
-keyboard_lib = None
-global_keyboard = None
-
+# Import pygame for local keyboard handling
 try:
-    import keyboard as keyboard_lib
-    logger.info("Successfully imported keyboard library for local shortcuts")
-except ImportError as e:
-    logger.error(f"Failed to import keyboard library for local shortcuts: {e}")
-    print(f"Warning: Local keyboard shortcuts will not work. Error: {e}")
+    import pygame
+    has_pygame = True
+    logger.info("PyGame local keyboard handling available")
+except ImportError:
+    has_pygame = False
+    logger.warning("PyGame not available - local keyboard handling will be limited")
+
+# Use different import approach to avoid conflicts
+keyboard_lib = None  # No longer needed for local shortcuts
+global_keyboard = None
 
 try:
     from pynput import keyboard as global_keyboard
@@ -36,6 +38,275 @@ try:
 except ImportError as e:
     logger.error(f"Failed to import pynput library for global shortcuts: {e}")
     print(f"Warning: Global keyboard shortcuts will not work. Error: {e}")
+
+class PyGameKeyboardHandler:
+    """
+    A non-blocking keyboard handler for local shortcuts using PyGame.
+    Only works when the application has focus and can distinguish 
+    between physical key presses and programmatically pasted text.
+    """
+    def __init__(self, command_handlers):
+        """
+        Initialize the PyGameKeyboardHandler
+        
+        Args:
+            command_handlers: Dictionary mapping commands to handler functions
+        """
+        self.command_handlers = command_handlers
+        self.shortcuts = config.LOCAL_KEYBOARD_SHORTCUTS
+        self.running = False
+        self.last_key_time = 0
+        self.key_cooldown = 0.3  # seconds
+        
+        # Modifier key states
+        self.alt_pressed = False
+        self.ctrl_pressed = False
+        self.shift_pressed = False
+        
+        # Initialize PyGame for keyboard input if not already initialized
+        if not pygame.get_init():
+            pygame.init()
+            print("PyGame initialized in PyGameKeyboardHandler")
+        else:
+            print("PyGame was already initialized")
+            
+        # Initialize font module if not already initialized
+        if not pygame.font.get_init():
+            pygame.font.init()
+            print("PyGame font module initialized")
+            
+        # Enable key repeat to ensure we get continuous key events
+        pygame.key.set_repeat(500, 50)  # Initial delay, repeat delay in ms
+        
+        # Create a hidden window for event processing
+        # This is necessary for PyGame to process events properly
+        if not pygame.display.get_surface():
+            try:
+                # Create a more visible window so users can click on it to give it focus
+                pygame.display.set_mode((400, 200), pygame.RESIZABLE)
+                pygame.display.set_caption("Voice Commander - Keyboard Input Window")
+                # Display instructions in the window
+                if pygame.font.get_init():
+                    font = pygame.font.SysFont('Arial', 16)
+                    window_surface = pygame.display.get_surface()
+                    window_surface.fill((240, 240, 240))  # Light gray background
+                    
+                    lines = [
+                        "Voice Commander Keyboard Shortcuts",
+                        "",
+                        "Click this window to capture keyboard input",
+                        "Press 'h' for help with available shortcuts",
+                        "",
+                        "This window must have focus for",
+                        "local keyboard shortcuts to work"
+                    ]
+                    
+                    y_pos = 20
+                    for line in lines:
+                        text_surface = font.render(line, True, (0, 0, 0))
+                        window_surface.blit(text_surface, (20, y_pos))
+                        y_pos += 25
+                    
+                    pygame.display.flip()
+                
+                logger.info("Created PyGame window for keyboard events")
+                print("PyGame window created for keyboard input - click this window to use local shortcuts")
+            except Exception as e:
+                logger.error(f"Failed to create PyGame window: {e}")
+                print(f"Error creating PyGame window: {e}")
+        else:
+            print("PyGame display surface already exists")
+        
+        logger.info("PyGameKeyboardHandler initialized")
+        
+    def start(self):
+        """Start the keyboard handler"""
+        self.running = True
+        logger.info("PyGameKeyboardHandler started")
+        print("PyGame keyboard handler started - ready to receive key events")
+        
+    def stop(self):
+        """Stop the keyboard handler"""
+        self.running = False
+        logger.info("PyGameKeyboardHandler stopped")
+        
+    def check_keys(self):
+        """
+        Check for keyboard input events without blocking.
+        Call this in your main loop.
+        
+        Returns:
+            True if a command was executed, False otherwise
+        """
+        if not self.running or not has_pygame:
+            return False
+            
+        try:
+            # Keep display updated to ensure window responsiveness
+            pygame.display.update()
+            
+            # Get and process all PyGame events, not just keyboard events
+            # This ensures we don't miss any events
+            events = pygame.event.get()
+            if events:
+                logger.debug(f"Received {len(events)} PyGame events")
+                
+            # Process each event
+            for event in events:
+                # Log all event types for debugging
+                logger.debug(f"PyGame event: {event}")
+                
+                if event.type == pygame.KEYDOWN:
+                    logger.info(f"PyGame KEYDOWN event: {pygame.key.name(event.key)}")
+                    print(f"Key pressed: {pygame.key.name(event.key)}")
+                    # Handle key down event
+                    result = self._handle_key_down(event)
+                    if result:
+                        return True
+                elif event.type == pygame.KEYUP:
+                    # Handle key up event
+                    self._handle_key_up(event)
+                elif event.type == pygame.QUIT:
+                    # Handle quit event
+                    print("PyGame QUIT event received")
+                    logger.info("PyGame QUIT event received")
+                    pygame.display.quit()
+                    pygame.quit()
+                    return False
+                # Handle window focus events to notify user
+                elif event.type == pygame.ACTIVEEVENT:
+                    if event.gain:
+                        print("Window focus gained - local keyboard shortcuts active")
+                    else:
+                        print("Window focus lost - local keyboard shortcuts inactive")
+                elif event.type == pygame.VIDEORESIZE:
+                    # Redraw window content when resized
+                    window_surface = pygame.display.get_surface()
+                    if window_surface:
+                        window_surface.fill((240, 240, 240))  # Light gray background
+                        if pygame.font.get_init():
+                            font = pygame.font.SysFont('Arial', 16)
+                            lines = [
+                                "Voice Commander Keyboard Shortcuts",
+                                "",
+                                "Click this window to capture keyboard input",
+                                "Press 'h' for help with available shortcuts",
+                                "",
+                                "This window must have focus for",
+                                "local keyboard shortcuts to work"
+                            ]
+                            
+                            y_pos = 20
+                            for line in lines:
+                                text_surface = font.render(line, True, (0, 0, 0))
+                                window_surface.blit(text_surface, (20, y_pos))
+                                y_pos += 25
+                        
+                        pygame.display.flip()
+                    
+        except Exception as e:
+            logger.error(f"Error processing PyGame keyboard events: {e}", exc_info=True)
+            print(f"Error in check_keys: {e}")
+            
+        return False
+        
+    def _handle_key_down(self, event):
+        """
+        Handle a PyGame key down event
+        
+        Args:
+            event: The PyGame event object
+            
+        Returns:
+            True if a command was executed, False otherwise
+        """
+        try:
+            # Update modifier key states
+            if event.key == pygame.K_LALT or event.key == pygame.K_RALT:
+                self.alt_pressed = True
+                return False
+            elif event.key == pygame.K_LCTRL or event.key == pygame.K_RCTRL:
+                self.ctrl_pressed = True
+                return False
+            elif event.key == pygame.K_LSHIFT or event.key == pygame.K_RSHIFT:
+                self.shift_pressed = True
+                return False
+                
+            # Get the key name (lowercase)
+            key_name = pygame.key.name(event.key).lower()
+            logger.debug(f"Key pressed: {key_name}, modifiers: alt={self.alt_pressed}, ctrl={self.ctrl_pressed}, shift={self.shift_pressed}")
+            
+            # Try to match shortcuts
+            for command, shortcut in self.shortcuts.items():
+                # Convert shortcut to lowercase for case-insensitive comparison
+                shortcut_lower = shortcut.lower()
+                
+                # Parse the shortcut
+                parts = shortcut_lower.split('+')
+                shortcut_alt = 'alt' in parts
+                shortcut_ctrl = 'ctrl' in parts
+                shortcut_shift = 'shift' in parts
+                
+                # The last part is usually the main key
+                main_key = parts[-1] if parts[-1] not in ['alt', 'ctrl', 'shift'] else None
+                
+                # If no main key found, try to find it in other parts
+                if main_key is None:
+                    for part in parts:
+                        if part not in ['alt', 'ctrl', 'shift']:
+                            main_key = part
+                            break
+                
+                # Skip if no main key found
+                if main_key is None:
+                    continue
+                
+                # Check if this event matches the shortcut
+                if ((key_name == main_key) and 
+                    (shortcut_alt == self.alt_pressed) and
+                    (shortcut_ctrl == self.ctrl_pressed) and
+                    (shortcut_shift == self.shift_pressed)):
+                    
+                    # Apply cooldown check
+                    current_time = time.time()
+                    if current_time - self.last_key_time < self.key_cooldown:
+                        logger.debug(f"Command {command} ignored - cooldown active")
+                        return False
+                    self.last_key_time = current_time
+                    
+                    # Execute command
+                    if command in self.command_handlers:
+                        logger.info(f"Executing local command: {command}")
+                        self.command_handlers[command]()
+                        return True
+                    else:
+                        logger.warning(f"Local command not found: {command}")
+                    
+        except Exception as e:
+            logger.error(f"Error handling PyGame key down event: {e}", exc_info=True)
+            
+        return False
+        
+    def _handle_key_up(self, event):
+        """
+        Handle a PyGame key up event
+        
+        Args:
+            event: The PyGame event object
+        """
+        try:
+            # Update modifier key states
+            if event.key == pygame.K_LALT or event.key == pygame.K_RALT:
+                self.alt_pressed = False
+            elif event.key == pygame.K_LCTRL or event.key == pygame.K_RCTRL:
+                self.ctrl_pressed = False
+            elif event.key == pygame.K_LSHIFT or event.key == pygame.K_RSHIFT:
+                self.shift_pressed = False
+                
+            logger.debug(f"Key released: {pygame.key.name(event.key)}")
+                
+        except Exception as e:
+            logger.error(f"Error handling PyGame key up event: {e}", exc_info=True)
 
 class KeyboardService:
     def __init__(self, groq_service=None, transcription_service=None):
@@ -49,7 +320,6 @@ class KeyboardService:
         logger.info("Initializing KeyboardService")
         self.groq_service = groq_service
         self.transcription_service = transcription_service
-        self.local_listener = None
         self.global_listener = None
         self.command_handlers = {
             'mute_toggle': self._toggle_mute,
@@ -66,7 +336,10 @@ class KeyboardService:
         self.key_cooldown = 0.3  # seconds
         self.ignore_next_keypress = False
         
-        # Modifier key states
+        # Create PyGameKeyboardHandler for truly local shortcuts
+        self.local_handler = PyGameKeyboardHandler(self.command_handlers)
+        
+        # Modifier key states for global shortcuts
         self.ctrl_pressed = False
         self.alt_pressed = False
         self.shift_pressed = False
@@ -128,26 +401,20 @@ class KeyboardService:
         logger.info("Starting keyboard service")
         self.running = True
         
-        local_setup_success = False
         global_setup_success = False
         
-        # Setup local keyboard shortcuts
-        if config.ENABLE_LOCAL_SHORTCUTS and keyboard_lib:
+        # Always start the local keyboard handler (PyGame-based)
+        if config.ENABLE_LOCAL_SHORTCUTS:
             try:
-                logger.info("Setting up local keyboard shortcuts...")
-                self._setup_local_shortcuts()
-                local_setup_success = True
+                logger.info("Starting local keyboard handler...")
+                self.local_handler.start()
+                logger.info("Local keyboard handler started successfully")
+                print("Local keyboard shortcuts enabled (PyGame-based)")
             except Exception as e:
-                logger.error(f"Failed to setup local keyboard shortcuts: {e}")
-                print(f"Warning: Failed to setup local keyboard shortcuts: {e}")
-                traceback.print_exc()
-        else:
-            if not keyboard_lib:
-                logger.warning("Local shortcuts disabled: keyboard library not available")
-            else:
-                logger.info("Local shortcuts disabled in config")
+                logger.error(f"Failed to start local keyboard handler: {e}")
+                print(f"Warning: Failed to start local keyboard handler: {e}")
             
-        # Setup global keyboard shortcuts
+        # Setup global keyboard shortcuts with pynput
         if config.ENABLE_GLOBAL_SHORTCUTS and global_keyboard:
             try:
                 logger.info("Setting up global keyboard shortcuts...")
@@ -161,6 +428,7 @@ class KeyboardService:
                 if self.global_listener.is_alive():
                     logger.info(f"Global keyboard listener started successfully")
                     global_setup_success = True
+                    print("Global keyboard shortcuts enabled (pynput-based)")
                 else:
                     logger.error(f"Global keyboard listener failed to start")
                     print(f"Warning: Global keyboard listener failed to start")
@@ -174,65 +442,27 @@ class KeyboardService:
             else:
                 logger.info("Global shortcuts disabled in config")
         
-        if local_setup_success or global_setup_success:
-            print("Keyboard shortcuts enabled.")
-            self._show_help()
-        else:
-            print("WARNING: No keyboard shortcuts could be enabled. Voice commands only.")
+        print("Keyboard shortcuts enabled.")
+        self._show_help()
         
-    def _setup_local_shortcuts(self):
-        """Setup local keyboard shortcuts"""
-        try:
-            for command, key in config.LOCAL_KEYBOARD_SHORTCUTS.items():
-                if keyboard_lib:
-                    def create_handler(cmd):
-                        def handler():
-                            try:
-                                if not self.running:
-                                    return
-                                    
-                                # Only process keypresses when the app is in focus
-                                if not self._is_app_in_focus():
-                                    logger.debug(f"Local command {cmd} ignored - app not in focus")
-                                    return
-                                    
-                                # Cooldown check
-                                current_time = time.time()
-                                if current_time - self.last_key_time < self.key_cooldown:
-                                    logger.debug(f"Command {cmd} ignored - cooldown active")
-                                    return
-                                self.last_key_time = current_time
-                                    
-                                logger.info(f"Local command detected: {cmd}")
-                                
-                                if cmd in self.command_handlers:
-                                    logger.info(f"Executing local command: {cmd}")
-                                    self.command_handlers[cmd]()
-                                else:
-                                    logger.warning(f"Local command not found: {cmd}")
-                            except Exception as e:
-                                logger.error(f"Error handling local command {cmd}: {e}")
-                                
-                        return handler
-                        
-                    keyboard_lib.add_hotkey(key, create_handler(command))
-                    logger.info(f"Added local shortcut '{key}' for command '{command}'")
-            
-        except Exception as e:
-            logger.error(f"Error while registering local keyboard shortcuts: {e}")
-             
+    def check_local_keys(self):
+        """Check for local keyboard input - to be called in the main loop"""
+        if self.running and self.local_handler:
+            return self.local_handler.check_keys()
+        return False
+        
     def stop(self):
         """Stop keyboard shortcut listeners"""
         logger.info("Stopping keyboard service")
         self.running = False
         
-        # Unregister local shortcuts
-        if config.ENABLE_LOCAL_SHORTCUTS and keyboard_lib:
+        # Stop local handler
+        if self.local_handler:
             try:
-                keyboard_lib.unhook_all()
-                logger.info("Unhooked all local shortcuts")
+                self.local_handler.stop()
+                logger.info("Stopped local keyboard handler")
             except Exception as e:
-                logger.error(f"Error unregistering local shortcuts: {e}")
+                logger.error(f"Error stopping local keyboard handler: {e}")
                     
         # Stop global listener
         if config.ENABLE_GLOBAL_SHORTCUTS and self.global_listener:
@@ -251,6 +481,10 @@ class KeyboardService:
         """
         if not self.running:
             return True  # Continue listening
+            
+        # Debug all key presses
+        logger.info(f"Global key press: {key}")
+        print(f"Global key press: {key}")
         
         # Update modifier key states on key press
         try:
@@ -268,13 +502,11 @@ class KeyboardService:
                 return True
         except Exception as e:
             logger.error(f"Error processing modifier key: {e}")
+            print(f"Error processing modifier key: {e}")
             
         try:
-            # Check if app is in focus for non-global shortcuts
-            if not self._is_app_in_focus() and not (self.ctrl_pressed and self.alt_pressed):
-                return True  # Ignore keypresses when app is not focused (except for ctrl+alt combos)
-            
             # If we're supposed to ignore this keypress, just continue
+            # BUT don't stop the whole system - just this one keypress
             if self.ignore_next_keypress:
                 logger.info(f"Ignoring programmatic keypress")
                 self.ignore_next_keypress = False
@@ -285,11 +517,13 @@ class KeyboardService:
             
             # If we couldn't determine the key, just continue
             if key_char is None:
+                logger.warning(f"Could not determine key character for: {key}")
                 return True
             
             # Debug output 
             if self.ctrl_pressed or self.alt_pressed or self.shift_pressed:
                 logger.info(f"Modifiers: CTRL={self.ctrl_pressed}, ALT={self.alt_pressed}, SHIFT={self.shift_pressed}, Key={key_char}")
+                print(f"Key with modifiers: CTRL={self.ctrl_pressed}, ALT={self.alt_pressed}, SHIFT={self.shift_pressed}, Key={key_char}")
                 
             # Check if any of the global shortcuts match
             matched = False
@@ -313,17 +547,20 @@ class KeyboardService:
                     (key_char == main_key or key_char.lower() == main_key)):
                     
                     logger.info(f"Global shortcut detected: {key_combo} for command {command}")
+                    print(f"Global shortcut detected: {key_combo} for command {command}")
                     matched = True
                     
                     # Execute the command directly 
                     try:
                         if command in self.command_handlers:
                             logger.info(f"Executing global command: {command}")
+                            print(f"Executing global command: {command}")
                             self.command_handlers[command]()
                         else:
                             logger.warning(f"Global command not found: {command}")
                     except Exception as e:
                         logger.error(f"Error executing global command {command}: {e}")
+                        print(f"Error executing global command {command}: {e}")
                         
             # Return False to consume the event if we matched a shortcut
             if matched:
@@ -331,6 +568,7 @@ class KeyboardService:
                 
         except Exception as e:
             logger.error(f"Error handling global key press: {e}", exc_info=True)
+            print(f"Error in global key press: {e}")
             
         return True  # Always continue listening for non-matched keys
     
@@ -450,9 +688,6 @@ class KeyboardService:
                 except Exception as e:
                     logger.error(f"TTS error: {e}")
             
-            # Set ignore flag to avoid handling keypress echoes
-            self.ignore_next_keypress = True
-            
     def _toggle_paste(self):
         """Toggle paste on/off"""
         if self.groq_service:
@@ -469,9 +704,6 @@ class KeyboardService:
                     self.groq_service.safe_tts_say(f"Automatic paste {status}")
                 except Exception as e:
                     logger.error(f"TTS error: {e}")
-            
-            # Set ignore flag
-            self.ignore_next_keypress = True
     
     def _reset_chat(self):
         """Reset chat history"""
@@ -487,9 +719,6 @@ class KeyboardService:
                     self.groq_service.safe_tts_say("Chat history reset")
                 except Exception as e:
                     logger.error(f"TTS error: {e}")
-            
-            # Set ignore flag
-            self.ignore_next_keypress = True
     
     def _switch_language(self, lang_code):
         """
@@ -520,15 +749,12 @@ class KeyboardService:
                     self.groq_service.safe_tts_say(f"Language switched to {lang_name}")
                 except Exception as e:
                     logger.error(f"TTS error: {e}")
-            
-            # Set ignore flag
-            self.ignore_next_keypress = True
     
     def _show_help(self):
         """Show available commands"""
         print("\nAvailable keyboard shortcuts:")
         
-        print("\nLocal shortcuts:")
+        print("\nLocal shortcuts (only work when app has focus):")
         for command, key in config.LOCAL_KEYBOARD_SHORTCUTS.items():
             description = self._get_command_description(command)
             print(f"  {key} : {description}")
@@ -540,9 +766,6 @@ class KeyboardService:
         
         print("")
         logger.info("Help displayed")
-        
-        # Set ignore flag
-        self.ignore_next_keypress = True
     
     def _get_command_description(self, command):
         """
@@ -562,6 +785,7 @@ class KeyboardService:
             'language_hr': "Switch to Croatian",
             'language_sl': "Switch to Slovenian",
             'help': "Show help/available commands",
+            'transcription_toggle': "Toggle transcription on/off",
         }
         
         return descriptions.get(command, command)
@@ -599,9 +823,6 @@ class KeyboardService:
                 else:
                     print("\033[91mTranscription would be STOPPED (service not available)\033[0m") 
                     
-            # Set ignore flag to avoid handling keypress echoes
-            self.ignore_next_keypress = True
-            
         except Exception as e:
             logger.error(f"Error toggling transcription: {e}")
             print(f"\033[91mError toggling transcription: {e}\033[0m") 

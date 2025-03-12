@@ -5,12 +5,13 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Python: Current File",
-            "type": "python",
+            "name": "Python: Voice Commander Qt",
+            "type": "debugpy",
             "request": "launch",
-            "program": "${workspaceFolder}/scripts/main.py",
+            "program": "${workspaceFolder}/voice_commander_qt.py",
             "console": "integratedTerminal",
-            "justMyCode": true
+            "justMyCode": true,
+            "subProcess": true
         }
     ]
 }

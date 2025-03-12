@@ -13,9 +13,17 @@ class AudioService:
         self.stream = None
         self.device_index = device_index
         self.is_paused = False  # Track if the stream is paused
+        self.device_list = []  # List of available input devices (id, name)
         
+        # Always get the device list first
+        self.device_list = self.get_input_devices_list()
+        
+        # If no device specified, use default (usually device 0)
         if self.device_index is None:
-            self.initialize()
+            if len(self.device_list) > 0:
+                self.device_index = self.device_list[0][0]  # Use first available device
+            else:
+                raise ValueError("No audio input devices found")
         else:
             # Check if device_index is a string (device name search)
             if isinstance(self.device_index, str):
@@ -24,11 +32,25 @@ class AudioService:
                 # Validate the provided numeric device index
                 self.validate_device_index(self.device_index)
 
-    def initialize(self):
-        self.list_input_devices()
-        self.device_index = int(input("\nEnter the device index you want to use: "))
-        # Validate the selected device index
-        self.validate_device_index(self.device_index)
+    def get_input_devices_list(self):
+        """
+        Get a list of available input devices
+        
+        Returns:
+            List of tuples (device_id, device_name) for available input devices
+        """
+        devices = []
+        p = pyaudio.PyAudio()
+        info = p.get_host_api_info_by_index(0)
+        num_devices = info.get('deviceCount')
+
+        for i in range(0, num_devices):
+            device_info = p.get_device_info_by_host_api_device_index(0, i)
+            if device_info.get('maxInputChannels') > 0:
+                devices.append((i, device_info.get('name')))
+        
+        p.terminate()
+        return devices
 
     def find_device_by_name(self, device_name):
         """
@@ -85,17 +107,44 @@ class AudioService:
             p.terminate()
 
     def list_input_devices(self):
-        p = pyaudio.PyAudio()
-        info = p.get_host_api_info_by_index(0)
-        num_devices = info.get('deviceCount')
-
+        """
+        Print available input devices to the console
+        """
         print("\nAvailable input devices:")
-        for i in range(0, num_devices):
-            deviceInfo = p.get_device_info_by_host_api_device_index(0, i)
-            if (deviceInfo.get('maxInputChannels')) > 0:
-                print(f"Input Device id {i} - {deviceInfo.get('name')}")
+        for device_id, device_name in self.device_list:
+            print(f"Input Device id {device_id} - {device_name}")
+
+    def switch_device(self, device_index):
+        """
+        Switch to a different input device
         
-        p.terminate()
+        Args:
+            device_index: The index of the device to switch to
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            # Validate the device index
+            self.validate_device_index(device_index)
+            
+            # If recording is active, stop it first
+            was_recording = False
+            if self.stream is not None:
+                was_recording = True
+                self.StopRecording()
+            
+            # Update the device index
+            self.device_index = device_index
+            
+            # Restart recording if it was active
+            if was_recording:
+                self.StartRecording()
+                
+            return True
+        except Exception as e:
+            print(f"Error switching device: {e}")
+            return False
 
     def StartRecording(self):
         """Start the audio recording process"""

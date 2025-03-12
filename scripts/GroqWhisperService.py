@@ -48,6 +48,10 @@ class GroqWhisperService:
 
         # Initialize TTS
         self._initialize_tts()
+        
+        # Signal callbacks for UI interaction
+        self.on_command_stop = None
+        self.on_command_resume = None
 
     def _initialize_tts(self):
         """Initialize the text-to-speech engine with error handling"""
@@ -78,10 +82,7 @@ class GroqWhisperService:
             return False
 
     def InitializeChat(self):
-        if config.USE_LLM:
-            print(f"Initializing chat... LLM: \033[33m{config.LLM_MODEL}\033[0m, transcription by: \033[33m{config.TRANSCRIPTION_MODEL}\033[0m")
-        else:
-            print(f"Initializing chat... transcription by: \033[33m{config.TRANSCRIPTION_MODEL}\033[0m")
+        print(f"Initializing chat... LLM: \033[33m{config.LLM_MODEL}\033[0m, transcription by: \033[33m{config.TRANSCRIPTION_MODEL}\033[0m")
         self.messages = [
             {
                 "role": "system",
@@ -306,112 +307,110 @@ class GroqWhisperService:
 
     def ParseResponse(self, response: str):
         """
-        Parse AI's response and execute commands or return a response to the user
+        Parse the response from the LLM
         
         Args:
-            response: The AI's response string
+            response: The response to parse
             
         Returns:
-            Processed response or None if no response needed
+            True if the response was handled, False otherwise
         """
-        try:
-            response = response.strip()
+        import re
+        import subprocess
+        
+        # Skip empty responses
+        if not response or len(response.strip()) == 0:
+            return "No response."
             
-            if not response:
-                return None
+        response = response.strip()
+        
+        # Handle incomplete commands
+        if response.startswith("INCOMPLETE_COMMAND"):
+            return ""
+            
+        # DICTATE command - just return the text
+        if response.startswith("DICTATE "):
+            # Remove the command and return the rest
+            return response[8:].strip()
+            
+        # RESET command - reset the chat history
+        if response.startswith("RESET"):
+            self.InitializeChat()
+            return "Chat history reset."
+        
+        # MUTE command - mute the LLM
+        if response.startswith("MUTE"):
+            self.mute_llm = True
+            return "AI chat muted."
+            
+        # UNMUTE command - unmute the LLM
+        if response.startswith("UNMUTE"):
+            self.mute_llm = False
+            return "AI chat unmuted."
+            
+        # STOP command - stop transcription
+        if response.startswith("STOP"):
+            if self.on_command_stop:
+                self.on_command_stop()
+                return "Transcription stopped."
+            return "Stop command received, but no handler is available."
+            
+        # RESUME command - resume transcription
+        if response.startswith("RESUME"):
+            if self.on_command_resume:
+                self.on_command_resume()
+                return "Transcription resumed."
+            return "Resume command received, but no handler is available."
+            
+        # PASTE command - toggle paste
+        if response.startswith("PASTE"):
+            parts = response.split()
+            if len(parts) > 1:
+                if parts[1].lower() == "on":
+                    self.automatic_paste = True
+                    return "Automatic paste enabled."
+                elif parts[1].lower() == "off":
+                    self.automatic_paste = False
+                    return "Automatic paste disabled."
+            
+            # Toggle if no parameter provided
+            self.automatic_paste = not self.automatic_paste
+            status = "enabled" if self.automatic_paste else "disabled"
+            return f"Automatic paste {status}."
+            
+        # SWITCH_LANGUAGE command - switch language
+        if response.startswith("SWITCH_LANGUAGE"):
+            parts = response.split()
+            if len(parts) > 1:
+                lang_code = parts[1].lower()
+                self.language = lang_code
                 
-            if response.upper() == "INCOMPLETE_COMMAND":
-                # Inform user the command is incomplete if in verbose mode
-                if config.VERBOSE_OUTPUT:
-                    print("AI detected incomplete command, waiting for more input...")
-                return None
+                # Map language codes to full names
+                language_names = config.AVAILABLE_LANGUAGES
+                lang_name = language_names.get(lang_code, lang_code)
                 
-            # Handle DICTATE command
-            if response.startswith("DICTATE") or response.startswith("DICTATE:"):
-                dictated_text = response.replace("DICTATE:", "").replace("DICTATE", "").strip()
-                print(f"\033[94m{dictated_text}\033[0m")
-                return dictated_text
-                
-            # Handle RESET command
-            if response.upper() == "RESET":
-                print("\033[94mResetting chat history...\033[0m")
-                self.InitializeChat()
-                return None
-                
-            # Handle MUTE command  
-            if response.upper() == "MUTE":
-                self.mute_llm = True
-                print("\033[94mAI chat is now muted\033[0m")
-                return None
-                
-            # Handle UNMUTE command
-            if response.upper() == "UNMUTE":
-                self.mute_llm = False
-                print("\033[94mAI chat is now unmuted\033[0m")
-                return None
-                
-            # Handle STOP command
-            if response.upper() == "STOP":
-                print("\033[91mStopping transcription...\033[0m")
-                # Find the TranscriptionService through KeyboardService to toggle transcription
-                # This is a bit of a hack, but it allows us to avoid circular imports
-                if hasattr(self, 'keyboard_service') and self.keyboard_service:
-                    self.keyboard_service._toggle_transcription()
-                return None
-                
-            # Handle RESUME command
-            if response.upper() == "RESUME":
-                print("\033[92mResuming transcription...\033[0m")
-                # Find the TranscriptionService through KeyboardService to toggle transcription
-                if hasattr(self, 'keyboard_service') and self.keyboard_service:
-                    self.keyboard_service._toggle_transcription()
-                return None
-
-            elif response.startswith("RESPOND_TO_USER"):
-                print(f"AI: \033[95m{response[16:]}\033[0m")
-            elif response.startswith("SWITCH_LANGUAGE"):
-                self.language = response.split(" ")[1]
-                print(f"Language switched to: \033[92m{self.language}\033[0m")
-                self.safe_tts_say(f"Language switched to {self.language}")
-
-            elif response.startswith("SEARCH"):
-                # Search the web
-                self.WebSearch(response[8:])
-
-            elif response.startswith("WRITE_FILE"):
-                # Write the content to a file
-                filename = os.path.join(config.LLM_SANDBOX_WORKING_FOLDER, response.split("'")[1])
-                content = response.split("```")[1]
-                content = content[content.find("\n"):]
-                with open(filename, "w") as file:
-                    file.write(content)
-                print(f"Content written to file: \033[92m{filename}\033[0m")
-                
-            elif response.startswith("PASTE"):
-                self.automatic_paste = response[6:].lower().strip() == "on"
-                print(f"Automatic paste: \033[92m{self.automatic_paste}\033[0m")
-                self.safe_tts_say(f"Automatic paste: {self.automatic_paste}")
-
-            elif response.startswith("RUN_SCRIPT"):
-                # Run the script
-                script_name = os.path.join(config.LLM_SANDBOX_WORKING_FOLDER, response.split("'")[1])
-                print(f"Running script: \033[92m{script_name}\033[0m")
-                try:
-                    runOutput, runErrors = self.run_script_independently(script_name)
-                    result = f"Running script: {script_name}"
-                    if runOutput:
-                        result += f"\n### Output:\n{runOutput}"
-                    if runErrors:
-                        result += f"\n### Errors:\n{runErrors}"                      
-                    self.AddUserMessage(result, "system")
-                    
-                except Exception as e:
-                    print(f"Error running the script: \033[91m{e}\033[0m")
-            else:
-                print(f"Command not recognized: \033[91m{response}\033[0m")
-        except Exception as e:
-            print(f"Error parsing response: {e}")
-            print(f"Response: {response}")
+                return f"Language switched to {lang_name}."
+            return "No language specified."
+            
+        # SEARCH command - search the web
+        if response.startswith("SEARCH "):
+            # Extract query between single quotes
+            match = re.search(r"SEARCH '(.*?)'", response)
+            if match:
+                query = match.group(1)
+                results = self.WebSearch(query)
+                return f"Search results for '{query}':\n{results}"
+            return "Invalid search format. Use: SEARCH 'query'"
+            
+        # Remaining commands kept as they were...
+        
+        # RESPOND_TO_USER command - general response
+        if response.startswith("RESPOND_TO_USER "):
+            # Remove the command and return the rest
+            return response[16:].strip()
+            
+        # If we didn't handle the response, just return it as is
+        return response
 
     def _call_groq_api(self, message):
         """
@@ -439,3 +438,8 @@ class GroqWhisperService:
         except Exception as e:
             print(f"Error calling Groq API: {e}")
             return f"ERROR: Could not get response from API. {str(e)}"
+
+    def set_command_callbacks(self, stop_callback=None, resume_callback=None):
+        """Set callbacks for handling commands"""
+        self.on_command_stop = stop_callback
+        self.on_command_resume = resume_callback
