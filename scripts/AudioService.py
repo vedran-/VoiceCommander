@@ -148,7 +148,7 @@ class AudioService:
             # Create a fresh PyAudio instance
             self.pyaudio = pyaudio.PyAudio()
             
-            # Don't automatically start recording - let the caller do that
+            # Don't automatically Start Transcription - let the caller do that
             # This allows proper sequencing with other components
             
             print(f"Successfully switched to audio device {device_index}")

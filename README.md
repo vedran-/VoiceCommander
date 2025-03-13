@@ -72,7 +72,7 @@ Where:
 
 ## UI Controls
 
-- **Stop/Start Recording**: Pause or resume the audio transcription
+- **Stop/Start Transcription**: Pause or resume the audio transcription
 - **Mute/Unmute LLM**: Toggle the LLM response on or off
 - **Enable/Disable Paste**: Toggle automatic pasting of transcribed text
 - **Reset Chat**: Clear the chat history and start a new conversation

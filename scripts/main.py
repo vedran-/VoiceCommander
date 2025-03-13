@@ -252,7 +252,7 @@ class VoiceCommanderApp(QMainWindow):
         button_layout.setSpacing(6)  # Reduce horizontal spacing between buttons
         
         # Recording control button
-        self.record_button = QPushButton("Start Recording")
+        self.record_button = QPushButton("Start Transcription")
         self.record_button.clicked.connect(self.toggle_recording)
         self.record_button.setStyleSheet(button_style)
         button_layout.addWidget(self.record_button)
@@ -393,7 +393,7 @@ class VoiceCommanderApp(QMainWindow):
         
         # Update recording button - only show green when recording
         is_recording = self.transcription_service.is_transcribing
-        self.record_button.setText("Recording" if is_recording else "Start Recording")
+        self.record_button.setText("Recording" if is_recording else "Start Transcription")
         self.record_button.setStyleSheet(active_style if is_recording else inactive_style)
         
         # Update mute button
@@ -436,7 +436,7 @@ class VoiceCommanderApp(QMainWindow):
     @pyqtSlot(bool)
     def on_audio_state_changed(self, is_recording):
         """Handle audio state change"""
-        self.record_button.setText("Recording" if is_recording else "Start Recording")
+        self.record_button.setText("Recording" if is_recording else "Start Transcription")
     
     def add_chat_message(self, text, is_user=True):
         """Add a message to the chat display"""

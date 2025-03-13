@@ -1,6 +1,9 @@
 import os
 import json
 import logging
+import sys
+import platform
+from pathlib import Path
 
 logger = logging.getLogger('SettingsManager')
 
@@ -24,16 +27,67 @@ class SettingsManager:
         Initialize the SettingsManager
         
         Args:
-            settings_dir: Directory to store settings file (default: app directory)
+            settings_dir: Directory to store settings file (default: platform-specific user data directory)
             settings_file: Name of the settings file
         """
         if settings_dir is None:
-            # Use the directory of this file as the default
-            settings_dir = os.path.dirname(os.path.abspath(__file__))
+            # Use platform-specific user data directory
+            settings_dir = self._get_user_data_dir()
         
         self.settings_path = os.path.join(settings_dir, settings_file)
+        
+        # Try to migrate settings from old location if new location doesn't exist
+        if not os.path.exists(self.settings_path):
+            self._migrate_settings_from_old_location(settings_file)
+        
         self.settings = self.load_settings()
         logger.info(f"Settings initialized from {self.settings_path}")
+    
+    def _get_user_data_dir(self):
+        """
+        Get platform-appropriate user data directory for storing settings
+        
+        Returns:
+            Path to user data directory
+        """
+        # Use hidden folder for Windows and Linux
+        app_name = "VoiceCommander"
+        
+        try:
+            # Get platform-specific user data directory
+            if platform.system() == "Windows":
+                # Windows: AppData/Roaming
+                if 'APPDATA' in os.environ:
+                    base_dir = os.path.join(os.environ['APPDATA'], app_name)
+                else:
+                    # Fallback to user home directory if APPDATA is not available
+                    base_dir = os.path.join(str(Path.home()), "." + app_name)
+            elif platform.system() == "Darwin":
+                # macOS: ~/Library/Application Support
+                # Keep macOS convention (Library folder is already hidden by default)
+                base_dir = os.path.join(str(Path.home()), "Library", "Application Support", app_name)
+            else:
+                # Linux/Unix: ~/.local/share
+                base_dir = os.path.join(str(Path.home()), ".local", "share", app_name)
+            
+            # Create directory if it doesn't exist
+            os.makedirs(base_dir, exist_ok=True)
+            
+            logger.info(f"Using settings directory: {base_dir}")
+            return base_dir
+            
+        except Exception as e:
+            # Fallback to user home directory if there's any issue
+            # Use platform-specific fallback
+            if platform.system() == "Darwin":
+                # For macOS, use a hidden folder in home directory as fallback
+                fallback_dir = os.path.join(str(Path.home()), f".{app_name}")
+            else:
+                fallback_dir = os.path.join(str(Path.home()), app_name)
+                
+            logger.error(f"Error determining user data directory: {e}. Using fallback: {fallback_dir}")
+            os.makedirs(fallback_dir, exist_ok=True)
+            return fallback_dir
     
     def load_settings(self):
         """
@@ -119,4 +173,41 @@ class SettingsManager:
             True if successful, False otherwise
         """
         self.settings.update(settings_dict)
-        return self.save_settings() 
+        return self.save_settings()
+    
+    def _migrate_settings_from_old_location(self, settings_file):
+        """
+        Attempt to migrate settings from old location (script directory) to new location
+        
+        Args:
+            settings_file: Name of the settings file
+        """
+        try:
+            # Check if settings exist in the old location (script directory)
+            old_dir = os.path.dirname(os.path.abspath(__file__))
+            old_path = os.path.join(old_dir, settings_file)
+            
+            if os.path.exists(old_path):
+                logger.info(f"Found settings in old location: {old_path}")
+                
+                # Read old settings
+                with open(old_path, 'r') as f:
+                    old_settings = json.load(f)
+                
+                # Save to new location
+                os.makedirs(os.path.dirname(self.settings_path), exist_ok=True)
+                with open(self.settings_path, 'w') as f:
+                    json.dump(old_settings, f, indent=4)
+                
+                logger.info(f"Settings migrated from {old_path} to {self.settings_path}")
+                
+                # Optionally, create a backup of the old file
+                backup_path = old_path + '.bak'
+                try:
+                    os.rename(old_path, backup_path)
+                    logger.info(f"Created backup of old settings file at {backup_path}")
+                except Exception as e:
+                    logger.warning(f"Could not create backup of old settings file: {e}")
+        
+        except Exception as e:
+            logger.warning(f"Failed to migrate settings from old location: {e}") 
