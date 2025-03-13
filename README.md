@@ -79,18 +79,6 @@ Where:
 - **Language Selection**: Choose your preferred language
 - **Microphone Selection**: Select your audio input device
 
-## Keyboard Shortcuts
-
-Voice Commander supports keyboard shortcuts for quick access to commands.
-
-### Local Shortcuts (active when application is in focus)
-- `m` - Toggle AI chat mute on/off
-- `p` - Toggle automatic paste on/off
-- `r` - Reset chat history
-- `alt+e` - Switch to English
-- `alt+h` - Switch to Croatian
-- `alt+s` - Switch to Slovenian
-- `h` - Show help and available commands
 
 ## Interface
 
