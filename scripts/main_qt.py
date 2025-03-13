@@ -120,7 +120,8 @@ class VoiceCommanderApp(QMainWindow):
         # Set callbacks for GroqWhisperService commands
         self.groq_service.set_command_callbacks(
             stop_callback=self.transcription_service.pause_transcription, 
-            resume_callback=self.transcription_service.resume_transcription
+            resume_callback=self.transcription_service.resume_transcription,
+            reset_callback=self.reset_chat
         )
         
         # Connect signals to slots
@@ -129,6 +130,7 @@ class VoiceCommanderApp(QMainWindow):
         self.transcription_service.status_update.connect(self.log_status)
         self.transcription_service.error.connect(self.on_error)
         self.transcription_service.audio_state_changed.connect(self.on_audio_state_changed)
+        self.transcription_service.ui_state_changed.connect(self.update_ui_state)
     
     def setup_ui(self):
         """Set up the main UI components"""

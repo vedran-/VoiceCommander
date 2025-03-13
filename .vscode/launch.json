@@ -5,10 +5,10 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Python: Voice Commander Qt",
+            "name": "Python: Voice Commander",
             "type": "debugpy",
             "request": "launch",
-            "program": "${workspaceFolder}/voice_commander_qt.py",
+            "program": "${workspaceFolder}/voice_commander.py",
             "console": "integratedTerminal",
             "justMyCode": true,
             "subProcess": true

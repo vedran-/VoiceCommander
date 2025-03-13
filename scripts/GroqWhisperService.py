@@ -336,6 +336,10 @@ class GroqWhisperService:
         # RESET command - reset the chat history
         if response.startswith("RESET"):
             self.InitializeChat()
+            
+            # Call reset callback if available
+            if self.on_command_reset:
+                self.on_command_reset()
             return "Chat history reset."
         
         # MUTE command - mute the LLM
@@ -490,7 +494,8 @@ class GroqWhisperService:
             print(f"Error calling Groq API: {e}")
             return f"ERROR: Could not get response from API. {str(e)}"
 
-    def set_command_callbacks(self, stop_callback=None, resume_callback=None):
+    def set_command_callbacks(self, stop_callback=None, resume_callback=None, reset_callback=None):
         """Set callbacks for handling commands"""
         self.on_command_stop = stop_callback
         self.on_command_resume = resume_callback
+        self.on_command_reset = reset_callback

@@ -22,6 +22,7 @@ class QtTranscriptionService(QObject):
     audio_state_changed = pyqtSignal(bool)  # Emitted when audio recording state changes (True=recording, False=paused)
     status_update = pyqtSignal(str)         # Emitted for status updates
     error = pyqtSignal(str)                 # Emitted on errors
+    ui_state_changed = pyqtSignal()         # Emitted when UI state needs to be updated
     
     ALLOWED_CHARACTERS = set(' _-,.;()[]{}!@#$%^&') | set(string.ascii_letters + string.digits)
     INVALID_CHARACTERS = "<>:\"/\\|?*"
@@ -63,8 +64,20 @@ class QtTranscriptionService(QObject):
         
         def new_parse_response(response):
             result = original_parse_response(response)
+            
+            # Emit the response as a message
             if isinstance(result, str) and result:
                 self.llm_response.emit(result)
+                
+                # Emit status update for specific commands to make them visible in the status area
+                if response.startswith("MUTE") or response.startswith("UNMUTE") or \
+                   response.startswith("PASTE") or response.startswith("RESET") or \
+                   response.startswith("SWITCH_LANGUAGE"):
+                    self.status_update.emit(result)
+                    
+                    # Signal that UI needs to be updated
+                    self.ui_state_changed.emit()
+                
             return result
             
         self.groq_whisper_service.ParseResponse = new_parse_response
