@@ -39,7 +39,7 @@ class GroqWhisperService:
 
     def __init__(self):
         self.client = Groq(api_key=config.GROQ_API_KEY)
-        self.language = "en"
+        self._language = "en"  # Private attribute
         self.mute_llm = True
         self.automatic_paste = True
         self.InitializeChat()        
@@ -52,6 +52,16 @@ class GroqWhisperService:
         # Signal callbacks for UI interaction
         self.on_command_stop = None
         self.on_command_resume = None
+
+    @property
+    def language(self):
+        """Get the current language code"""
+        return self._language
+        
+    @language.setter
+    def language(self, value):
+        """Set the language code"""
+        self._language = value
 
     def _initialize_tts(self):
         """Initialize the text-to-speech engine with error handling"""
@@ -210,22 +220,47 @@ class GroqWhisperService:
     def run_script_independently(self, script_name):
         import subprocess
         try:
-            # Run the script in a separate process
-            process = subprocess.Popen(
-                [sys.executable, script_name],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE
-            )
-
-            # Capture the output and errors
-            stdout, stderr = process.communicate()
-
-            # Print the output and errors
-            if stdout:
-                print(f"Output:\n{stdout.decode()}")
-            if stderr:
-                print(f"Errors:\n{stderr.decode()}")
-            return stdout.decode(), stderr.decode()
+            if sys.platform == "win32":
+                # On Windows, open a new console window and run the script
+                # The 'start' command opens a new console window, /B runs without creating a new window
+                # 'python' runs the script using the current Python interpreter
+                startupinfo = subprocess.STARTUPINFO()
+                startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+                
+                # Create the process but don't wait
+                process = subprocess.Popen(
+                    [sys.executable, script_name],
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    startupinfo=startupinfo,
+                    creationflags=subprocess.CREATE_NEW_CONSOLE
+                )
+                
+                # Return a message that the script was launched successfully
+                return "Script launched in a new window.", ""
+            else:
+                # On Unix-like systems, run the script in the background
+                process = subprocess.Popen(
+                    [sys.executable, script_name],
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE
+                )
+                
+                # Set up a thread to handle the output
+                def handle_output():
+                    stdout, stderr = process.communicate()
+                    if stdout:
+                        print(f"Script output:\n{stdout.decode()}")
+                    if stderr:
+                        print(f"Script errors:\n{stderr.decode()}")
+                
+                # Start the thread to handle the output asynchronously
+                output_thread = threading.Thread(target=handle_output)
+                output_thread.daemon = True  # Daemon thread will exit when the main program exits
+                output_thread.start()
+                
+                # Return a message that the script was launched successfully
+                return "Script launched in background.", ""
 
         except Exception as e:
             return None, f"Error running the script: {e}"

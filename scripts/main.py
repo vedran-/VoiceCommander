@@ -142,6 +142,21 @@ class VoiceCommanderApp(QMainWindow):
         saved_language = self.settings_manager.get('language', 'en')
         self.groq_service.language = saved_language
         
+        # Store a reference to the original setter
+        original_setter = type(self.groq_service).language.fset
+        
+        def language_observer(instance, value):
+            # Call the original setter
+            original_setter(instance, value)
+            # Update the UI on the main thread
+            self.update_language_ui()
+        
+        # Replace the property setter with our observer
+        type(self.groq_service).language = property(
+            type(self.groq_service).language.fget,
+            language_observer
+        )
+        
         # Set callbacks for GroqWhisperService commands
         self.groq_service.set_command_callbacks(
             stop_callback=self.transcription_service.pause_transcription, 
@@ -545,6 +560,21 @@ class VoiceCommanderApp(QMainWindow):
             self.transcription_service.stop_transcription()
         
         event.accept()
+
+    def update_language_ui(self):
+        """Update the language selection UI based on the current service setting"""
+        if not hasattr(self, 'language_combo') or not self.language_combo:
+            return
+            
+        # Find the index for the current language
+        current_lang = self.groq_service.language
+        for i in range(self.language_combo.count()):
+            if self.language_combo.itemData(i) == current_lang:
+                # Block signals to prevent recursive calls
+                self.language_combo.blockSignals(True)
+                self.language_combo.setCurrentIndex(i)
+                self.language_combo.blockSignals(False)
+                break
 
 
 def main():
