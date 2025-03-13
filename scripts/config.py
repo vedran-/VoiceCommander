@@ -16,33 +16,16 @@ UNFAMILIAR_WORDS = ("Some of the unfamilar words which might appear: "
                     "Mute, unmute, reset, copy, paste"
 )
 
+# Qt UI configuration
+UI_THEME = "light"  # Options: "light", "dark"
+UI_FONT_SIZE = 11
+UI_SAVE_WINDOW_POSITION = True
 
-# Keyboard shortcut configuration
-# Format: 'command': 'key'
-# For global shortcuts, use GLOBAL_KEYBOARD_SHORTCUTS
-# For local shortcuts, use LOCAL_KEYBOARD_SHORTCUTS
-ENABLE_GLOBAL_SHORTCUTS = True
-ENABLE_LOCAL_SHORTCUTS = True
-
-LOCAL_KEYBOARD_SHORTCUTS = {
-    'mute_toggle': 'm',        # Toggle mute on/off 
-    'paste_toggle': 'p',       # Toggle paste on/off
-    'reset': 'r',              # Reset chat history
-    'language_en': 'alt+e',    # Switch to English
-    'language_hr': 'alt+h',    # Switch to Croatian
-    'language_sl': 'alt+s',    # Switch to Slovenian
-    'help': 'h',               # Show help/available commands
-    'transcription_toggle': 's', # Toggle transcription on/off
+# Language settings
+AVAILABLE_LANGUAGES = {
+    'en': 'English',
+    'hr': 'Croatian',
+    'sl': 'Slovenian'
 }
-
-GLOBAL_KEYBOARD_SHORTCUTS = {
-    'mute_toggle': 'ctrl+alt+m',   # Toggle mute on/off
-    'paste_toggle': 'ctrl+alt+p',  # Toggle paste on/off
-    'reset': 'ctrl+alt+r',         # Reset chat history
-    'language_en': 'ctrl+alt+e',   # Switch to English
-    'language_hr': 'ctrl+alt+h',   # Switch to Croatian
-    'language_sl': 'ctrl+alt+s',   # Switch to Slovenian
-    'help': 'ctrl+alt+shift+h',    # Show help/available commands
-    'transcription_toggle': 'ctrl+alt+t', # Toggle transcription on/off
-}
+DEFAULT_LANGUAGE = 'en'
 

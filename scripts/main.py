@@ -4,7 +4,7 @@ import logging
 import time
 from PyQt6.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QPushButton
 from PyQt6.QtWidgets import QTextEdit, QLabel, QComboBox, QSplitter, QGroupBox, QGridLayout, QScrollArea
-from PyQt6.QtCore import Qt, QThread, pyqtSignal, pyqtSlot
+from PyQt6.QtCore import Qt, QThread, pyqtSignal, pyqtSlot, QMetaObject
 from PyQt6.QtGui import QColor, QTextCursor, QFont, QIcon
 
 # Import our services
@@ -18,6 +18,10 @@ from . import config
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger('VoiceCommander')
+
+# Print application version information
+print("Voice Commander Qt v0.3.0\n")
+print("Starting the Qt-based Voice Commander application...")
 
 class AudioProcessingWorker(QThread):
     """
@@ -56,23 +60,44 @@ class VoiceCommanderApp(QMainWindow):
     """
     Main application window for Voice Commander
     """
+    # Define some signals
+    clear_chat_signal = pyqtSignal()  # Signal to clear chat from any thread
+    
     def __init__(self):
         super().__init__()
         
-        # Initialize settings manager
+        # Set up the window
+        self.setWindowTitle("Voice Commander")
+        self.setGeometry(100, 100, 1200, 800)
+        self.setWindowIcon(QIcon("assets/icon.ico"))
+        
+        # Initialize attributes
+        self.audio_service = None
+        self.vosk_service = None
+        self.transcription_service = None
+        self.status_text = None
+        self.chat_display = None
+        self.audio_worker = None
+        self.groq_service = None
         self.settings_manager = SettingsManager.SettingsManager()
+        
+        # Connect signals
+        self.clear_chat_signal.connect(self._clear_chat_display)
         
         # Initialize status_text for early logging
         self.status_text = None
         
-        # Initialize services
+        # Initialize services first
         self.initialize_services()
         
-        # Set up the UI
+        # Build UI after services are initialized
         self.setup_ui()
         
-        # Start the audio processing
+        # Start audio processing
         self.start_audio_processing()
+        
+        # Set up window close handling
+        self.closeEvent = self.on_close
     
     def initialize_services(self):
         """Initialize the application services"""
@@ -409,18 +434,23 @@ class VoiceCommanderApp(QMainWindow):
     
     def reset_chat(self):
         """Reset the chat history"""
-        self.groq_service.InitializeChat()
-        self.log_status("Chat history reset")
-        
-        # Clear the chat display
-        self.chat_display.clear()
-        
-        # Only attempt TTS if not muted
-        if not self.groq_service.mute_llm:
-            try:
-                self.groq_service.safe_tts_say("Chat history reset")
-            except Exception as e:
-                self.log_status(f"TTS error: {e}")
+        try:
+            # Reset the chat history in the service
+            self.groq_service.InitializeChat()
+            self.log_status("Chat history reset")
+            
+            # Emit signal to clear chat display in the UI thread
+            self.clear_chat_signal.emit()
+            
+            # Only attempt TTS if not muted
+            if not self.groq_service.mute_llm:
+                try:
+                    self.groq_service.safe_tts_say("Chat history reset")
+                except Exception as e:
+                    self.log_status(f"TTS error: {e}")
+        except Exception as e:
+            self.log_status(f"Error resetting chat: {e}")
+            logger.error(f"Error in reset_chat: {e}", exc_info=True)
     
     def change_language(self, index):
         """Change the language based on combo box selection"""
@@ -495,7 +525,12 @@ class VoiceCommanderApp(QMainWindow):
                         self.microphone_combo.blockSignals(False)
                         break
     
-    def closeEvent(self, event):
+    def _clear_chat_display(self):
+        """Slot for clearing the chat display in the UI thread"""
+        if self.chat_display:
+            self.chat_display.clear()
+    
+    def on_close(self, event):
         """Handle window close event"""
         # Save window position and size
         self.settings_manager.set('window_position', [self.x(), self.y()])
