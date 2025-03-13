@@ -24,6 +24,8 @@ A voice-controlled assistant with a Qt-based user interface that listens to your
 pip install .
 ```
 
+This will install Voice Commander and make the `vc` command available system-wide. The installation process sets up the necessary Python package and creates an executable entry point so you can launch the application from any terminal.
+
 ## Configuration
 
 Before using Voice Commander, you need to configure your settings in the `config.py` file:
@@ -41,6 +43,16 @@ Before using Voice Commander, you need to configure your settings in the `config
    ```
 
 ## Running
+
+You can run Voice Commander in two ways:
+
+### Using the installed command (after pip install)
+
+```bash
+vc [-d DEVICE_INDEX] [-v]
+```
+
+### Running directly from the source
 
 ```bash
 python voice_commander.py [-d DEVICE_INDEX] [-v]
