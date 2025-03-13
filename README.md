@@ -1,12 +1,31 @@
-Listens to your microphone and transcribes the audio into text, and the copies the text to the clipboard.
+# Voice Commander
 
+A voice-controlled assistant with a Qt-based user interface that listens to your microphone, transcribes audio into text, and processes commands through a language model.
 
-### Installation
-```
+![Voice Commander Screenshot](assets/Voice-Commander-screenshot.png)
+*Voice Commander - Clean Qt interface with transcription, LLM processing, and customizable settings*
+
+## Features
+
+- **Speech Recognition**: Real-time transcription of speech to text
+- **Automatic Clipboard Integration**: Automatically copies transcribed text to clipboard with optional paste
+- **LLM Command Processing**: Process natural language commands with Groq API
+- **Script Generation & Execution**: LLM can write and run scripts automatically
+- **Script Error Detection & Fixing**: Automatically detects and fixes errors in scripts
+- **Multi-language Support**: Switch to any language
+- **Sound Notifications**: Audio feedback when speech is recognized
+- **Microphone Selection**: Choose from available audio input devices
+- **Persistent Settings**: Application remembers your preferences between sessions
+- **Qt-based User Interface**: Clean and responsive graphical interface
+
+## Installation
+
+```bash
 pip install .
 ```
 
-### Configuration
+## Configuration
+
 Before using Voice Commander, you need to configure your settings in the `config.py` file:
 
 1. **Required**: Set your Groq API key
@@ -21,23 +40,38 @@ Before using Voice Commander, you need to configure your settings in the `config
    LLM_SANDBOX_WORKING_FOLDER = "/path/to/llm/sandbox"
    ```
 
-3. **Optional**: Adjust other settings like keyboard shortcuts in the same file
-
-### Running
+## Running
 
 ```bash
-vc [--llm] [-d DEVICE_INDEX]
+python voice_commander.py [-d DEVICE_INDEX] [-v]
 ```
 
 Where:
-- `--llm`: Enable LLM processing
-- `-d DEVICE_INDEX` or `--device DEVICE_INDEX`: Specify the audio input device index to use (skip the device selection prompt)
+- `-d DEVICE_INDEX` or `--device DEVICE_INDEX`: Specify the audio input device index or name to use
+- `-v` or `--verbose`: Enable verbose output for debugging
 
-### Keyboard Shortcuts
+## Usage
 
-Voice Commander now supports both application-local and global keyboard shortcuts for quick access to commands.
+1. **Start the application**: Launch the application using the command above
+2. **Select a microphone**: Choose your preferred audio input device from the dropdown
+3. **Start speaking**: The application will automatically transcribe your speech
+4. **Use LLM commands**: Speak commands to control the application or perform tasks
+5. **Toggle features**: Use the buttons in the UI to toggle features like muting or automatic paste
 
-#### Local Shortcuts (active when application is in focus)
+## UI Controls
+
+- **Stop/Start Recording**: Pause or resume the audio transcription
+- **Mute/Unmute LLM**: Toggle the LLM response on or off
+- **Enable/Disable Paste**: Toggle automatic pasting of transcribed text
+- **Reset Chat**: Clear the chat history and start a new conversation
+- **Language Selection**: Choose your preferred language
+- **Microphone Selection**: Select your audio input device
+
+## Keyboard Shortcuts
+
+Voice Commander supports keyboard shortcuts for quick access to commands.
+
+### Local Shortcuts (active when application is in focus)
 - `m` - Toggle AI chat mute on/off
 - `p` - Toggle automatic paste on/off
 - `r` - Reset chat history
@@ -46,40 +80,63 @@ Voice Commander now supports both application-local and global keyboard shortcut
 - `alt+s` - Switch to Slovenian
 - `h` - Show help and available commands
 
-#### Global Shortcuts (active system-wide)
-- `ctrl+alt+m` - Toggle AI chat mute on/off
-- `ctrl+alt+p` - Toggle automatic paste on/off
-- `ctrl+alt+r` - Reset chat history
-- `ctrl+alt+e` - Switch to English
-- `ctrl+alt+h` - Switch to Croatian
-- `ctrl+alt+s` - Switch to Slovenian
-- `ctrl+alt+shift+h` - Show help and available commands
+## Interface
 
-Shortcuts can be configured in the `config.py` file.
+The Voice Commander application features a clean, intuitive interface divided into two main sections:
 
-## Recent Fixes
+### Conversation Area
+- Displays transcribed speech and AI responses
+- Chat history with color-coded messages (user speech in gold, AI responses in blue)
+- Reset button to clear conversation history
 
-### Keyboard Shortcut Fixes (March 10, 2025)
+### Controls Section
+- **Main Controls**: Recording toggle, AI Processing toggle, and Auto-Paste toggle
+- **Language Selection**: Switch between different languages for transcription
+- **Microphone Selection**: Choose from available audio input devices
+- **Status Area**: View real-time feedback and error messages
 
-We resolved issues with keyboard shortcuts in this update:
+The interface is designed to be straightforward while providing access to all necessary controls and feedback. The main window is resizable, with the conversation area automatically expanding to use available space.
 
-1. **Local Keyboard Shortcuts**: Fixed an issue where the program only responded to the first keypress and then stopped responding.
-   - Added `suppress=True` parameter to keyboard hotkey registration
-   - Fixed an issue where the ignore_next_keypress flag was being reset incorrectly
-   - Reduced lock timeout to avoid deadlocks
+## Recent Updates
 
-2. **Global Keyboard Shortcuts**: Fixed issues with global hotkeys not responding.
-   - Improved key character recognition and detection
-   - Added proper event consumption (return False) to handle global shortcuts
-   - Added better debug logging to trace shortcut detection
+### March 2025 Updates
 
-3. **General Improvements**:
-   - Added comprehensive logging throughout the keyboard service
-   - Improved error handling for keyboard library dependencies
-   - Fixed thread lock issues with shorter timeouts
+1. **Consolidated UI**: Application has been fully converted to a Qt-based interface
+   - Improved user experience with intuitive controls
+   - Better status feedback and error reporting
 
-To enable DEBUG level logging for more verbose information, add this to the main.py file:
-```python
-import logging
-logging.basicConfig(level=logging.DEBUG)
-```
+2. **Improved Microphone Handling**:
+   - Fixed issues with microphone switching
+   - Added proper buffer reset when changing devices
+   - Enhanced error handling for audio streams
+
+3. **Persistent Settings**:
+   - Added persistence for mute/unmute state
+   - Added persistence for automatic paste settings
+   - Implemented window position and size memory
+
+4. **Audio Processing Enhancements**:
+   - Improved short audio detection and handling
+   - Better synchronization between audio and transcription
+   - Enhanced error handling for audio stream issues
+
+## Troubleshooting
+
+If you encounter issues:
+
+1. **Audio Transcription Problems**:
+   - Make sure your microphone is working correctly
+   - Check that you've selected the correct device in the dropdown
+   - Speak clearly and at a normal volume
+
+2. **Application Errors**:
+   - Run with the `-v` flag to enable verbose output
+   - Check the status area in the application for error messages
+
+3. **LLM Command Issues**:
+   - Verify your Groq API key is correctly set
+   - Ensure you have an internet connection for API access
+
+## License
+
+MIT License

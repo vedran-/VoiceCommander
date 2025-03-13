@@ -69,7 +69,7 @@ class VoiceCommanderApp(QMainWindow):
         # Set up the window
         self.setWindowTitle("Voice Commander")
         self.setGeometry(100, 100, 1200, 800)
-        self.setWindowIcon(QIcon("assets/icon.ico"))
+        self.setWindowIcon(QIcon("assets/voice-commander.png"))
         
         # Initialize attributes
         self.audio_service = None
@@ -198,9 +198,33 @@ class VoiceCommanderApp(QMainWindow):
         chat_container = QWidget()
         chat_layout = QVBoxLayout(chat_container)
         
+        # Conversation header with Reset button
+        header_layout = QHBoxLayout()
         chat_label = QLabel("Conversation")
         chat_label.setStyleSheet("font-weight: bold; font-size: 14px;")
-        chat_layout.addWidget(chat_label)
+        header_layout.addWidget(chat_label)
+        
+        # Define button style with width but minimal height constraints
+        button_style = """
+            QPushButton {
+                min-width: 120px;
+                padding: 3px;
+                border-radius: 3px;
+                border: 1px solid #aaaaaa;
+            }
+        """
+        
+        # Push Reset Chat button to the right side
+        header_layout.addStretch(1)
+        
+        # Add Reset Chat button to the conversation header
+        self.reset_button = QPushButton("Reset Chat")
+        self.reset_button.clicked.connect(self.reset_chat)
+        self.reset_button.setStyleSheet(button_style)
+        header_layout.addWidget(self.reset_button)
+        
+        # Add the header to the chat layout
+        chat_layout.addLayout(header_layout)
         
         self.chat_display = QTextEdit()
         self.chat_display.setReadOnly(True)
@@ -213,33 +237,54 @@ class VoiceCommanderApp(QMainWindow):
         # Controls area
         controls_container = QWidget()
         controls_layout = QVBoxLayout(controls_container)
+        controls_layout.setSpacing(5)  # Reduce spacing between group boxes
+        controls_layout.setContentsMargins(5, 5, 5, 5)  # Reduce container margins
         
         # Group the controls in a grid layout
         controls_group = QGroupBox("Controls")
+        controls_group.setStyleSheet("QGroupBox { padding-top: 15px; margin-top: 5px; }")
         controls_grid = QGridLayout()
+        controls_grid.setVerticalSpacing(5)
+        controls_grid.setContentsMargins(10, 5, 10, 5)  # Reduce padding inside group box
         
-        # Row 1: Transcription controls
-        self.record_button = QPushButton("Stop Recording")
+        # Row 1: Recording, AI and Paste buttons
+        button_layout = QHBoxLayout()
+        button_layout.setSpacing(6)  # Reduce horizontal spacing between buttons
+        
+        # Recording control button
+        self.record_button = QPushButton("Start Recording")
         self.record_button.clicked.connect(self.toggle_recording)
-        controls_grid.addWidget(self.record_button, 0, 0)
+        self.record_button.setStyleSheet(button_style)
+        button_layout.addWidget(self.record_button)
         
-        self.mute_button = QPushButton("Unmute LLM")
+        # LLM processing toggle button
+        self.mute_button = QPushButton("AI Processing: On")
         self.mute_button.clicked.connect(self.toggle_mute)
-        controls_grid.addWidget(self.mute_button, 0, 1)
+        self.mute_button.setStyleSheet(button_style)
+        button_layout.addWidget(self.mute_button)
         
-        self.paste_button = QPushButton("Disable Paste")
+        # Automatic paste toggle button
+        self.paste_button = QPushButton("Auto-Paste: On")
         self.paste_button.clicked.connect(self.toggle_paste)
-        controls_grid.addWidget(self.paste_button, 0, 2)
+        self.paste_button.setStyleSheet(button_style)
+        button_layout.addWidget(self.paste_button)
         
-        # Row 2: Language and Reset controls
-        self.reset_button = QPushButton("Reset Chat")
-        self.reset_button.clicked.connect(self.reset_chat)
-        controls_grid.addWidget(self.reset_button, 1, 0)
+        # Create a widget to hold the button layout
+        button_widget = QWidget()
+        button_widget.setLayout(button_layout)
+        
+        # Add the button widget to the grid layout
+        controls_grid.addWidget(button_widget, 0, 0, 1, 3)
+        
+        # Row 2: Combined Language and Microphone selection
+        selections_layout = QHBoxLayout()
+        selections_layout.setContentsMargins(0, 0, 0, 0)  # Reduce margins
         
         # Language selection
         lang_layout = QHBoxLayout()
         lang_layout.addWidget(QLabel("Language:"))
         self.language_combo = QComboBox()
+        self.language_combo.setMinimumWidth(120)  # Match button width
         
         # Add languages from config
         for code, name in config.AVAILABLE_LANGUAGES.items():
@@ -255,11 +300,13 @@ class VoiceCommanderApp(QMainWindow):
         self.language_combo.currentIndexChanged.connect(self.change_language)
         lang_layout.addWidget(self.language_combo)
         
-        lang_widget = QWidget()
-        lang_widget.setLayout(lang_layout)
-        controls_grid.addWidget(lang_widget, 1, 1, 1, 2)
+        # Add language selection to the combined layout
+        selections_layout.addLayout(lang_layout)
         
-        # Row 3: Microphone selection
+        # Add some spacing between the selections
+        selections_layout.addSpacing(20)
+        
+        # Microphone selection
         mic_layout = QHBoxLayout()
         mic_layout.addWidget(QLabel("Microphone:"))
         self.microphone_combo = QComboBox()
@@ -277,9 +324,11 @@ class VoiceCommanderApp(QMainWindow):
         self.microphone_combo.currentIndexChanged.connect(self.change_microphone)
         mic_layout.addWidget(self.microphone_combo)
         
-        mic_widget = QWidget()
-        mic_widget.setLayout(mic_layout)
-        controls_grid.addWidget(mic_widget, 2, 0, 1, 3)
+        # Add microphone selection to the combined layout
+        selections_layout.addLayout(mic_layout)
+        
+        # Add the combined selections to the grid
+        controls_grid.addLayout(selections_layout, 1, 0, 1, 3)
         
         # Set the grid layout to the controls group
         controls_group.setLayout(controls_grid)
@@ -287,11 +336,13 @@ class VoiceCommanderApp(QMainWindow):
         
         # Status area
         status_group = QGroupBox("Status")
+        status_group.setStyleSheet("QGroupBox { padding-top: 15px; margin-top: 5px; }")
         status_layout = QVBoxLayout()
+        status_layout.setContentsMargins(10, 5, 10, 5)  # Reduce padding inside group box
         
         self.status_text = QTextEdit()
         self.status_text.setReadOnly(True)
-        self.status_text.setMaximumHeight(100)
+        self.status_text.setMaximumHeight(80)  # Slightly reduce maximum height
         status_layout.addWidget(self.status_text)
         
         status_group.setLayout(status_layout)
@@ -316,17 +367,44 @@ class VoiceCommanderApp(QMainWindow):
     
     def update_ui_state(self):
         """Update UI elements based on current application state"""
-        # Update recording button
+        # Base button style without height constraints but with width
+        base_style = """
+            QPushButton {
+                min-width: 120px;
+                padding: 3px;
+                border-radius: 3px;
+                border: 1px solid #aaaaaa;
+            }
+        """
+        
+        # Active button style (green)
+        active_style = base_style + """
+            QPushButton {
+                background-color: #66cc66;
+                color: #000000;
+            }
+            QPushButton:hover {
+                background-color: #77dd77;
+            }
+        """
+        
+        # Inactive button style (default system style)
+        inactive_style = base_style
+        
+        # Update recording button - only show green when recording
         is_recording = self.transcription_service.is_transcribing
-        self.record_button.setText("Stop Recording" if is_recording else "Start Recording")
+        self.record_button.setText("Recording" if is_recording else "Start Recording")
+        self.record_button.setStyleSheet(active_style if is_recording else inactive_style)
         
         # Update mute button
         is_muted = self.groq_service.mute_llm
-        self.mute_button.setText("Unmute LLM" if is_muted else "Mute LLM")
+        self.mute_button.setText(f"AI Processing: {'Off' if is_muted else 'On'}")
+        self.mute_button.setStyleSheet(active_style if not is_muted else inactive_style)
         
         # Update paste button
         is_paste_on = self.groq_service.automatic_paste
-        self.paste_button.setText("Disable Paste" if is_paste_on else "Enable Paste")
+        self.paste_button.setText(f"Auto-Paste: {'On' if is_paste_on else 'Off'}")
+        self.paste_button.setStyleSheet(active_style if is_paste_on else inactive_style)
     
     def start_audio_processing(self):
         """Start the audio processing thread"""
@@ -358,7 +436,7 @@ class VoiceCommanderApp(QMainWindow):
     @pyqtSlot(bool)
     def on_audio_state_changed(self, is_recording):
         """Handle audio state change"""
-        self.record_button.setText("Stop Recording" if is_recording else "Start Recording")
+        self.record_button.setText("Recording" if is_recording else "Start Recording")
     
     def add_chat_message(self, text, is_user=True):
         """Add a message to the chat display"""
@@ -407,7 +485,7 @@ class VoiceCommanderApp(QMainWindow):
     def toggle_mute(self):
         """Toggle LLM mute state"""
         self.groq_service.mute_llm = not self.groq_service.mute_llm
-        status = "muted" if self.groq_service.mute_llm else "unmuted"
+        status = "disabled" if self.groq_service.mute_llm else "enabled"
         self.log_status(f"AI chat {status}")
         
         # Save the setting
