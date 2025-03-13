@@ -3,7 +3,7 @@ import subprocess
 import sys
 
 def check_and_install_libraries():
-    required_libraries = ['pyaudio', 'pyperclip', 'vosk', 'groq', 'googlesearch', 'selenium', 'keyboard', 'pynput', 'pygame']
+    required_libraries = ['pyaudio', 'pyperclip', 'vosk', 'groq', 'googlesearch', 'selenium', 'pynput', 'pygame']
     
     for library in required_libraries:
         try:
