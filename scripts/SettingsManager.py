@@ -14,7 +14,9 @@ class SettingsManager:
         'microphone_name': '',
         'ui_theme': 'light',
         'window_position': None,
-        'window_size': None
+        'window_size': None,
+        'mute_llm': True,
+        'automatic_paste': True
     }
     
     def __init__(self, settings_dir=None, settings_file='voice_commander_settings.json'):

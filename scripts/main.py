@@ -138,9 +138,15 @@ class VoiceCommanderApp(QMainWindow):
         # Get a reference to the GroqWhisperService
         self.groq_service = self.transcription_service.groq_whisper_service
         
-        # Set language from settings
+        # Load settings
         saved_language = self.settings_manager.get('language', 'en')
+        saved_mute_llm = self.settings_manager.get('mute_llm', True)
+        saved_automatic_paste = self.settings_manager.get('automatic_paste', True)
+        
+        # Apply saved settings
         self.groq_service.language = saved_language
+        self.groq_service.mute_llm = saved_mute_llm
+        self.groq_service.automatic_paste = saved_automatic_paste
         
         # Store a reference to the original setter
         original_setter = type(self.groq_service).language.fset
@@ -271,10 +277,6 @@ class VoiceCommanderApp(QMainWindow):
         self.microphone_combo.currentIndexChanged.connect(self.change_microphone)
         mic_layout.addWidget(self.microphone_combo)
         
-        mic_refresh_button = QPushButton("Refresh")
-        mic_refresh_button.clicked.connect(self.refresh_microphones)
-        mic_layout.addWidget(mic_refresh_button)
-        
         mic_widget = QWidget()
         mic_widget.setLayout(mic_layout)
         controls_grid.addWidget(mic_widget, 2, 0, 1, 3)
@@ -311,21 +313,6 @@ class VoiceCommanderApp(QMainWindow):
         # Add all available microphones
         for device_id, device_name in self.audio_service.device_list:
             self.microphone_combo.addItem(f"{device_name}", device_id)
-    
-    def refresh_microphones(self):
-        """Refresh the list of available microphones"""
-        # Get fresh list of devices
-        self.audio_service.device_list = self.audio_service.get_input_devices_list()
-        
-        # Update the UI
-        self.populate_microphones()
-        
-        # Try to select the current device
-        current_device = self.audio_service.device_index
-        for i in range(self.microphone_combo.count()):
-            if self.microphone_combo.itemData(i) == current_device:
-                self.microphone_combo.setCurrentIndex(i)
-                break
     
     def update_ui_state(self):
         """Update UI elements based on current application state"""
@@ -423,6 +410,9 @@ class VoiceCommanderApp(QMainWindow):
         status = "muted" if self.groq_service.mute_llm else "unmuted"
         self.log_status(f"AI chat {status}")
         
+        # Save the setting
+        self.settings_manager.set('mute_llm', self.groq_service.mute_llm)
+        
         # Only attempt TTS if we're unmuting or were not muted before
         if not self.groq_service.mute_llm:
             try:
@@ -437,6 +427,9 @@ class VoiceCommanderApp(QMainWindow):
         self.groq_service.automatic_paste = not self.groq_service.automatic_paste
         status = "enabled" if self.groq_service.automatic_paste else "disabled"
         self.log_status(f"Automatic paste {status}")
+        
+        # Save the setting
+        self.settings_manager.set('automatic_paste', self.groq_service.automatic_paste)
         
         # Only attempt TTS if not muted
         if not self.groq_service.mute_llm:
@@ -520,6 +513,12 @@ class VoiceCommanderApp(QMainWindow):
                 
                 # Log the change
                 self.log_status(f"Microphone switched to {device_name}")
+                
+                # Important: We need to recreate the recognizer with the new device's parameters
+                self.transcription_service.reset_recognizer()
+                
+                # Wait a moment for audio system to stabilize
+                time.sleep(0.5)
                 
                 # Restart audio processing
                 self.start_audio_processing()

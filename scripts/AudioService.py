@@ -128,19 +128,30 @@ class AudioService:
             # Validate the device index
             self.validate_device_index(device_index)
             
-            # If recording is active, stop it first
-            was_recording = False
-            if self.stream is not None:
-                was_recording = True
-                self.StopRecording()
+            # Skip if already using this device
+            if self.device_index == device_index:
+                return True
+            
+            # Completely stop and clean up the current recording session
+            self.StopRecording()
             
             # Update the device index
             self.device_index = device_index
             
-            # Restart recording if it was active
-            if was_recording:
-                self.StartRecording()
-                
+            # We need to initialize a clean state before starting
+            self.accumulated_data = b''
+            self.accumulated_time = 0
+            self.dropped_bytes = 0
+            self.dropped_time = 0
+            self.is_paused = False
+            
+            # Create a fresh PyAudio instance
+            self.pyaudio = pyaudio.PyAudio()
+            
+            # Don't automatically start recording - let the caller do that
+            # This allows proper sequencing with other components
+            
+            print(f"Successfully switched to audio device {device_index}")
             return True
         except Exception as e:
             print(f"Error switching device: {e}")
@@ -234,23 +245,47 @@ class AudioService:
                 is_active = self.stream.is_active()
             except OSError:
                 # Handle "Stream not open" error gracefully
+                self.log_warning("Stream not open, recreating stream...")
+                self._create_stream()
                 return b'\x00' * (self.CHUNK * self.CHANNELS * self.BYTES_PER_SAMPLE)
                 
             if not is_active:
-                # Return silence if stream is not active
+                # Try to restart the stream
+                try:
+                    self.log_warning("Stream not active, attempting to restart...")
+                    self.stream.start_stream()
+                except:
+                    # If we can't restart, recreate it
+                    self._create_stream()
                 return b'\x00' * (self.CHUNK * self.CHANNELS * self.BYTES_PER_SAMPLE)
                 
-            # Read from the stream
-            chunk_data = self.stream.read(self.CHUNK)
-            self.accumulated_data += chunk_data
-            chunk_duration = len(chunk_data) / self.BYTES_PER_SECOND
-            self.accumulated_time += chunk_duration
-            return chunk_data
+            # Read from the stream with error handling
+            try:
+                chunk_data = self.stream.read(self.CHUNK, exception_on_overflow=False)
+                
+                # Validate the chunk data (must be the expected size)
+                expected_size = self.CHUNK * self.CHANNELS * self.BYTES_PER_SAMPLE
+                if len(chunk_data) != expected_size:
+                    self.log_warning(f"Invalid chunk size: {len(chunk_data)} bytes, expected {expected_size}")
+                    return b'\x00' * expected_size
+                    
+                self.accumulated_data += chunk_data
+                chunk_duration = len(chunk_data) / self.BYTES_PER_SECOND
+                self.accumulated_time += chunk_duration
+                return chunk_data
+            except Exception as e:
+                self.log_warning(f"Error reading chunk: {e}")
+                return b'\x00' * (self.CHUNK * self.CHANNELS * self.BYTES_PER_SAMPLE)
+                
         except IOError as e:
             # Handle potential errors when reading from a paused/stopped stream
-            print(f"Warning: Error reading audio chunk: {e}")
+            self.log_warning(f"IOError reading audio chunk: {e}")
             return b'\x00' * (self.CHUNK * self.CHANNELS * self.BYTES_PER_SAMPLE)
-    
+            
+    def log_warning(self, message):
+        """Helper to log warnings consistently"""
+        print(f"Warning: {message}")
+
     def DropAudioBuffer(self):
         self.dropped_bytes += len(self.accumulated_data)
         self.dropped_time += self.accumulated_time
@@ -258,17 +293,36 @@ class AudioService:
         self.accumulated_time = 0
 
     def ExtractAudioData(self, start, duration):
+        # Enforce a minimum duration (0.1 seconds should be safe)
+        MIN_DURATION_SECONDS = 0.1
+        if duration < MIN_DURATION_SECONDS:
+            duration = MIN_DURATION_SECONDS
+        
         startOffset = int((start * self.BYTES_PER_SECOND) / self.BYTE_ALIGN) * self.BYTE_ALIGN
         bytes_count = int((duration * self.BYTES_PER_SECOND) / self.BYTE_ALIGN) * self.BYTE_ALIGN
-
+        
+        # Ensure we have at least 160 bytes (10ms of audio at 16kHz, 16-bit, mono)
+        MIN_BYTES = 320  # 20ms minimum to be safe
+        if bytes_count < MIN_BYTES:
+            bytes_count = MIN_BYTES
+        
         startOffset -= self.dropped_bytes
         if startOffset < 0:
             bytes_count += startOffset
             startOffset = 0
 
         if startOffset + bytes_count > len(self.accumulated_data):
+            # If we don't have enough data yet, return None to signal caller 
+            # to wait for more data rather than sending a too-short sample
+            if len(self.accumulated_data) < MIN_BYTES:
+                return None
+                
             bytes_count = len(self.accumulated_data) - startOffset
-
+            
+        # Final check to ensure we're not returning too little data
+        if bytes_count < MIN_BYTES:
+            return None
+            
         return self.accumulated_data[startOffset:startOffset+bytes_count]
 
     def StopRecording(self):

@@ -186,6 +186,11 @@ class TranscriptionService(QObject):
         """Handle recognized speech"""
         try:
             audio_data = self.audio_service.ExtractAudioData(textStartTime-0.25, textDuration+0.25)
+            
+            # Skip if not enough audio data is available
+            if audio_data is None or len(audio_data) < 320:  # Minimum 20ms of audio
+                self.status_update.emit("Speech detected but audio sample too short, ignoring")
+                return
 
             whisper_text = self.groq_whisper_service.TranscribeAudio(audio_data)
             if whisper_text is None:
@@ -239,4 +244,30 @@ class TranscriptionService(QObject):
         except Exception as e:
             error_msg = f"Error saving WAV file: {e}"
             self.status_update.emit(error_msg)
-            self.error.emit(error_msg) 
+            self.error.emit(error_msg)
+
+    def reset_recognizer(self):
+        """Reset and recreate the recognizer - call this when changing microphones"""
+        try:
+            # First make sure any active recognition is stopped
+            if hasattr(self, 'recognizer'):
+                self.recognizer.Reset()
+            
+            # Create a brand new recognizer instance
+            self.recognizer = KaldiRecognizer(self.vosk_service.model, self.audio_service.FRAME_RATE)
+            self.recognizer.SetWords(True)
+            self.recognizer.SetPartialWords(True)
+            self.recognizer.SetNLSML(False)
+            self.recognizer.Reset()
+            
+            # Reset the audio buffer to prevent using old data with the new recognizer
+            if hasattr(self, 'audio_service') and self.audio_service:
+                self.audio_service.DropAudioBuffer()
+            
+            self.status_update.emit("Speech recognizer has been reset for new microphone")
+            return True
+        except Exception as e:
+            error_msg = f"Error resetting recognizer: {e}"
+            self.status_update.emit(error_msg)
+            self.error.emit(error_msg)
+            return False 

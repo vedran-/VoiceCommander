@@ -102,6 +102,15 @@ class GroqWhisperService:
         self.chat_timestamp = datetime.now().strftime("%Y-%m-%d %H-%M-%S")
 
     def TranscribeAudio(self, audio_data):
+        if audio_data is None:
+            print("No audio data to transcribe")
+            return None
+            
+        # Verify minimum audio length (prevent "too short" API errors)
+        if len(audio_data) < 320:  # Less than 20ms at 16kHz, 16-bit, mono
+            print(f"Audio too short to transcribe: {len(audio_data)} bytes")
+            return None
+            
         wav_buffer = io.BytesIO()
         with wave.open(wav_buffer, 'wb') as wav_file:
             wav_file.setnchannels(1)  # Mono audio
@@ -110,24 +119,20 @@ class GroqWhisperService:
             wav_file.writeframes(audio_data)
         wav_data = wav_buffer.getvalue()
 
-        transcription = self.client.audio.transcriptions.create(
-            file=("instructions.wav", wav_data),
-            model=config.TRANSCRIPTION_MODEL,
-            prompt=config.UNFAMILIAR_WORDS,  # Optional
-            response_format="verbose_json",  # Optional
-            language=self.language,  # Optional
-            temperature=0.0  # Optional
-        )
+        try:
+            transcription = self.client.audio.transcriptions.create(
+                file=("instructions.wav", wav_data),
+                model=config.TRANSCRIPTION_MODEL,
+                prompt=config.UNFAMILIAR_WORDS,  # Optional
+                response_format="verbose_json",  # Optional
+                language=self.language,  # Optional
+                temperature=0.0  # Optional
+            )
+        except Exception as e:
+            print(f"Transcription API error: {e}")
+            return None
 
-        # This is the object we get:
-        #     Transcription(text=' Voice command or press Ctrl C to stop recording and prescribe.', task='transcribe', language='English', duration=3.63, segments=[{'id': 0, 'seek': 0, 'start': 0, 'end': 4, 'text': ' Voice command or press Ctrl C to stop recording and prescribe.', 'tokens': [50365, 15229, 5622, 420, 1886, 35233, 383, 281, 1590, 6613, 293, 49292, 13, 50565], 'temperature': 0, 'avg_logprob': -0.6023157, 'compression_ratio': 0.96875, 'no_speech_prob': 0.030296149}], x_groq={'id': 'req_01j42aapy0eset9a6kd0p4dk7y'})
-        #print(f"    Transcription: {transcription}")
-        # Extract probabilities from transcription
-        #log_prob = segment['avg_logprob']
-        #compression_ratio = segment['compression_ratio']
-        #print(f"    Transcription confidence: {log_prob} - {compression_ratio} - {no_speech_prob}")
-        
-        # Check each segment, and use only text from those who have no_speech_prob <= config.MAX_TRANSCRIPTION_NO_SPEECH_PROBABILITY
+        # Extract text from segments with acceptable no_speech_prob
         text = ""
         for segment in transcription.segments:
             if segment['no_speech_prob'] <= config.MAX_TRANSCRIPTION_NO_SPEECH_PROBABILITY:
@@ -140,11 +145,6 @@ class GroqWhisperService:
 
         if text.startswith('Thank you') or text.startswith('Subtitles by'):
             return None
-
-        #no_speech_prob = sum(segment['no_speech_prob'] for segment in transcription.segments) / len(transcription.segments)
-        #print(f"    [No speech: {no_speech_prob}] {transcription.text}")
-        #if no_speech_prob > config.MAX_TRANSCRIPTION_NO_SPEECH_PROBABILITY:
-        #    return None
 
         return text
 
