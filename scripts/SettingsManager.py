@@ -21,7 +21,10 @@ class SettingsManager:
         'mute_llm': True,
         'automatic_paste': True,
         'keyboard_shortcuts': {
-            'toggle_push_to_talk': 'f8'  # Default shortcut for push-to-talk
+            'toggle_push_to_talk': 'f8',  # Default shortcut for push-to-talk
+            'toggle_recording': 'f7',     # Default shortcut for recording toggle
+            'toggle_ai_processing': 'f9', # Default shortcut for AI processing toggle
+            'toggle_auto_paste': 'f10'    # Default shortcut for auto paste toggle
         }
     }
     

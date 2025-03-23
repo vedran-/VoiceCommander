@@ -83,6 +83,7 @@ class VoiceCommanderApp(QMainWindow):
         self.groq_service = None
         self.settings_manager = SettingsManager.SettingsManager()
         self.keyboard_service = None
+        self.shortcut_buttons = {}  # Dictionary to store shortcut buttons
         
         # Connect signals
         self.clear_chat_signal.connect(self._clear_chat_display)
@@ -146,6 +147,9 @@ class VoiceCommanderApp(QMainWindow):
         
         # Register shortcut callbacks
         self.keyboard_service.register_shortcut('toggle_push_to_talk', self.toggle_push_to_talk)
+        self.keyboard_service.register_shortcut('toggle_recording', self.toggle_recording)
+        self.keyboard_service.register_shortcut('toggle_ai_processing', self.toggle_mute)
+        self.keyboard_service.register_shortcut('toggle_auto_paste', self.toggle_paste)
         
         # Connect the shortcut_triggered signal
         self.keyboard_service.shortcut_triggered.connect(self.on_shortcut_triggered)
@@ -715,33 +719,52 @@ class VoiceCommanderApp(QMainWindow):
         shortcuts_layout = QGridLayout()
         shortcuts_layout.setContentsMargins(10, 5, 10, 5)
         
-        # Push-to-talk shortcut
-        row = 0
-        shortcuts_layout.addWidget(QLabel("Push-to-talk toggle:"), row, 0)
+        # Define shortcut actions and their display names
+        shortcut_actions = [
+            ('toggle_push_to_talk', "Push-to-talk toggle:"),
+            ('toggle_recording', "Recording toggle:"),
+            ('toggle_ai_processing', "AI processing toggle:"),
+            ('toggle_auto_paste', "Auto-paste toggle:")
+        ]
         
-        # Create button for push-to-talk shortcut
-        self.push_to_talk_shortcut_btn = QPushButton(self.keyboard_service.get_shortcut('toggle_push_to_talk') or "None")
-        self.push_to_talk_shortcut_btn.setToolTip("Click to set a new shortcut key")
-        self.push_to_talk_shortcut_btn.setMinimumWidth(120)
-        self.push_to_talk_shortcut_btn.clicked.connect(lambda: self.start_shortcut_recording('toggle_push_to_talk'))
-        shortcuts_layout.addWidget(self.push_to_talk_shortcut_btn, row, 1)
+        # Create UI elements for each shortcut
+        for row, (action_name, display_name) in enumerate(shortcut_actions):
+            shortcuts_layout.addWidget(QLabel(display_name), row, 0)
+            
+            # Get the current shortcut or "None" if not set
+            current_shortcut = self.keyboard_service.get_shortcut(action_name)
+            button_text = current_shortcut if current_shortcut else "None"
+            
+            # Convert to a friendly name for display if it's a virtual key
+            if current_shortcut and (current_shortcut.startswith("vk") or current_shortcut.startswith("Key_0x")):
+                button_text = self.keyboard_service.get_friendly_key_name(current_shortcut)
+            
+            # Create button for this shortcut
+            shortcut_btn = QPushButton(button_text)
+            shortcut_btn.setToolTip("Click to set a new shortcut key (Escape/Delete to clear)")
+            shortcut_btn.setMinimumWidth(120)
+            
+            # Connect button to shortcut recording with the action name
+            shortcut_btn.clicked.connect(lambda checked, action=action_name: self.start_shortcut_recording(action))
+            
+            # Add to layout
+            shortcuts_layout.addWidget(shortcut_btn, row, 1)
+            
+            # Store reference to button for later updates
+            self.shortcut_buttons[action_name] = shortcut_btn
         
         # Set the layout for the group box
         shortcuts_group.setLayout(shortcuts_layout)
         
-        # Add the group box to the parent layout (adjust col span as needed)
+        # Add the group box to the parent layout
         parent_layout.addWidget(shortcuts_group, 4, 0, 1, 3)  # Assuming this goes below existing controls
     
     def start_shortcut_recording(self, action_name):
         """Start recording a new keyboard shortcut for the given action"""
-        button = None
-        
-        # Find the button for this action
-        if action_name == 'toggle_push_to_talk':
-            button = self.push_to_talk_shortcut_btn
-        
-        if not button:
+        if action_name not in self.shortcut_buttons:
             return
+            
+        button = self.shortcut_buttons[action_name]
         
         # Change button text to indicate recording state
         original_text = button.text()
@@ -750,16 +773,37 @@ class VoiceCommanderApp(QMainWindow):
         
         # Create a listener for a single key press
         def on_key_press(key):
-            # Get a standardized key name
-            key_str = self.keyboard_service._normalize_key(key)
-            
-            # Update the shortcut
-            self.keyboard_service.set_shortcut(action_name, key_str)
-            
-            # Update the button on the main thread
-            button.setText(key_str)
-            button.setStyleSheet("")
-            
+            try:
+                # Get a standardized key name
+                key_str = self.keyboard_service._normalize_key(key)
+                
+                # Check if this is a cancel key (Escape or Delete)
+                if self.keyboard_service.is_cancel_key(key_str):
+                    # Clear the shortcut
+                    self.keyboard_service.set_shortcut(action_name, None)
+                    
+                    # Update the button text
+                    button.setText("None")
+                    button.setStyleSheet("")
+                    self.log_status(f"Shortcut for {action_name} has been cleared")
+                else:
+                    # Update the shortcut
+                    self.keyboard_service.set_shortcut(action_name, key_str)
+                    
+                    # Get a friendly display name for the key
+                    display_name = key_str
+                    if key_str.startswith("vk") or key_str.startswith("Key_0x"):
+                        display_name = self.keyboard_service.get_friendly_key_name(key_str)
+                    
+                    # Update the button on the main thread
+                    button.setText(display_name)
+                    button.setStyleSheet("")
+                    self.log_status(f"Shortcut for {action_name} set to {display_name}")
+            except Exception as e:
+                logger.error(f"Error in shortcut key handler: {e}")
+                button.setText(original_text)
+                button.setStyleSheet("")
+                
             # Stop the listener
             return False  # Stop listening
         
@@ -784,7 +828,13 @@ class VoiceCommanderApp(QMainWindow):
         
         # Log the shortcut usage to the status
         shortcut_key = self.keyboard_service.get_shortcut(action_name)
-        self.log_status(f"Keyboard shortcut [{shortcut_key}] activated: {action_name}")
+        
+        # Try to get a friendly name for display
+        display_key = shortcut_key
+        if shortcut_key and (shortcut_key.startswith("vk") or shortcut_key.startswith("Key_0x")):
+            display_key = self.keyboard_service.get_friendly_key_name(shortcut_key)
+            
+        self.log_status(f"Keyboard shortcut [{display_key}] activated: {action_name}")
         
         # No need to do anything here as the action is directly connected to the method
         # The methods will be called directly by the keyboard service
