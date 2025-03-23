@@ -4,8 +4,9 @@ import logging
 import time
 from PyQt6.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QPushButton
 from PyQt6.QtWidgets import QTextEdit, QLabel, QComboBox, QSplitter, QGroupBox, QGridLayout, QScrollArea
-from PyQt6.QtCore import Qt, QThread, pyqtSignal, pyqtSlot, QMetaObject
+from PyQt6.QtCore import Qt, QThread, pyqtSignal, pyqtSlot, QMetaObject, QTimer
 from PyQt6.QtGui import QColor, QTextCursor, QFont, QIcon
+from pynput import keyboard
 
 # Import our services
 from . import dependencies
@@ -13,6 +14,7 @@ from . import VoskService
 from . import AudioService
 from . import TranscriptionService
 from . import SettingsManager
+from . import KeyboardService
 from . import config
 
 # Configure logging
@@ -80,6 +82,7 @@ class VoiceCommanderApp(QMainWindow):
         self.audio_worker = None
         self.groq_service = None
         self.settings_manager = SettingsManager.SettingsManager()
+        self.keyboard_service = None
         
         # Connect signals
         self.clear_chat_signal.connect(self._clear_chat_display)
@@ -137,6 +140,15 @@ class VoiceCommanderApp(QMainWindow):
         
         # Get a reference to the GroqWhisperService
         self.groq_service = self.transcription_service.groq_whisper_service
+        
+        # Initialize keyboard service
+        self.keyboard_service = KeyboardService.KeyboardService(self.settings_manager)
+        
+        # Register shortcut callbacks
+        self.keyboard_service.register_shortcut('toggle_push_to_talk', self.toggle_push_to_talk)
+        
+        # Connect the shortcut_triggered signal
+        self.keyboard_service.shortcut_triggered.connect(self.on_shortcut_triggered)
         
         # Load settings
         saved_language = self.settings_manager.get('language', 'en')
@@ -336,6 +348,9 @@ class VoiceCommanderApp(QMainWindow):
         # Add the combined selections to the grid
         controls_grid.addLayout(selections_layout, 1, 0, 1, 3)
         
+        # Add a Keyboard Shortcuts section to the settings
+        self.setup_shortcut_ui(controls_grid)
+        
         # Set the grid layout to the controls group
         controls_group.setLayout(controls_grid)
         controls_layout.addWidget(controls_group)
@@ -498,16 +513,19 @@ class VoiceCommanderApp(QMainWindow):
             self.transcription_service.resume_transcription()
     
     def toggle_push_to_talk(self):
-        """Toggle push-to-talk mode"""
-        # Toggle push-to-talk mode
-        is_push_to_talk = self.transcription_service.toggle_push_to_talk()
+        """Toggle push-to-talk mode and update the UI"""
+        # Call the transcription service method
+        self.transcription_service.toggle_push_to_talk()
         
-        # Update status message
-        status = "activated" if is_push_to_talk else "deactivated"
-        self.log_status(f"Push to talk mode {status}")
+        # Update the UI button to reflect current state
+        is_active = self.transcription_service.is_push_to_talk_mode
+        self.push_to_talk_button.setText("Stop Talking" if is_active else "Push to Talk")
         
-        # Update UI
-        self.update_ui_state()
+        # Update the style to show active/inactive state
+        if is_active:
+            self.push_to_talk_button.setStyleSheet("QPushButton { background-color: #ffaaaa; }")
+        else:
+            self.push_to_talk_button.setStyleSheet("")
     
     def toggle_mute(self):
         """Toggle LLM mute state"""
@@ -651,18 +669,27 @@ class VoiceCommanderApp(QMainWindow):
     
     def on_close(self, event):
         """Handle window close event"""
-        # Save window position and size
-        self.settings_manager.set('window_position', [self.x(), self.y()])
-        self.settings_manager.set('window_size', [self.width(), self.height()])
+        try:
+            # Save window position and size
+            self.settings_manager.set('window_position', [self.x(), self.y()])
+            self.settings_manager.set('window_size', [self.width(), self.height()])
+            
+            # Stop the audio worker
+            if hasattr(self, 'audio_worker'):
+                self.audio_worker.stop()
+            
+            # Stop the transcription service
+            if hasattr(self, 'transcription_service'):
+                self.transcription_service.stop_transcription()
+            
+            # Stop the keyboard listener
+            if hasattr(self, 'keyboard_service') and self.keyboard_service:
+                self.keyboard_service.stop_listening()
+            
+        except Exception as e:
+            logger.error(f"Error during application shutdown: {e}", exc_info=True)
         
-        # Stop the audio worker
-        if hasattr(self, 'audio_worker'):
-            self.audio_worker.stop()
-        
-        # Stop the transcription service
-        if hasattr(self, 'transcription_service'):
-            self.transcription_service.stop_transcription()
-        
+        # Accept the close event
         event.accept()
 
     def update_language_ui(self):
@@ -679,6 +706,88 @@ class VoiceCommanderApp(QMainWindow):
                 self.language_combo.setCurrentIndex(i)
                 self.language_combo.blockSignals(False)
                 break
+
+    def setup_shortcut_ui(self, parent_layout):
+        """Set up UI elements for keyboard shortcut configuration"""
+        # Create a group box for shortcuts
+        shortcuts_group = QGroupBox("Keyboard Shortcuts")
+        shortcuts_group.setStyleSheet("QGroupBox { padding-top: 15px; margin-top: 5px; }")
+        shortcuts_layout = QGridLayout()
+        shortcuts_layout.setContentsMargins(10, 5, 10, 5)
+        
+        # Push-to-talk shortcut
+        row = 0
+        shortcuts_layout.addWidget(QLabel("Push-to-talk toggle:"), row, 0)
+        
+        # Create button for push-to-talk shortcut
+        self.push_to_talk_shortcut_btn = QPushButton(self.keyboard_service.get_shortcut('toggle_push_to_talk') or "None")
+        self.push_to_talk_shortcut_btn.setToolTip("Click to set a new shortcut key")
+        self.push_to_talk_shortcut_btn.setMinimumWidth(120)
+        self.push_to_talk_shortcut_btn.clicked.connect(lambda: self.start_shortcut_recording('toggle_push_to_talk'))
+        shortcuts_layout.addWidget(self.push_to_talk_shortcut_btn, row, 1)
+        
+        # Set the layout for the group box
+        shortcuts_group.setLayout(shortcuts_layout)
+        
+        # Add the group box to the parent layout (adjust col span as needed)
+        parent_layout.addWidget(shortcuts_group, 4, 0, 1, 3)  # Assuming this goes below existing controls
+    
+    def start_shortcut_recording(self, action_name):
+        """Start recording a new keyboard shortcut for the given action"""
+        button = None
+        
+        # Find the button for this action
+        if action_name == 'toggle_push_to_talk':
+            button = self.push_to_talk_shortcut_btn
+        
+        if not button:
+            return
+        
+        # Change button text to indicate recording state
+        original_text = button.text()
+        button.setText("Press any key...")
+        button.setStyleSheet("QPushButton { background-color: #ffcccc; }")
+        
+        # Create a listener for a single key press
+        def on_key_press(key):
+            # Get a standardized key name
+            key_str = self.keyboard_service._normalize_key(key)
+            
+            # Update the shortcut
+            self.keyboard_service.set_shortcut(action_name, key_str)
+            
+            # Update the button on the main thread
+            button.setText(key_str)
+            button.setStyleSheet("")
+            
+            # Stop the listener
+            return False  # Stop listening
+        
+        # Create and start a listener in a new thread
+        listener = keyboard.Listener(on_press=on_key_press)
+        listener.daemon = True
+        listener.start()
+        
+        # Add a timeout to reset the button if no key is pressed
+        def reset_button():
+            if button.text() == "Press any key...":
+                button.setText(original_text)
+                button.setStyleSheet("")
+                
+        # Schedule the reset after 5 seconds
+        QTimer.singleShot(5000, reset_button)
+    
+    @pyqtSlot(str)
+    def on_shortcut_triggered(self, action_name):
+        """Handle when a keyboard shortcut is triggered"""
+        logger.info(f"Shortcut triggered for action: {action_name}")
+        
+        # Log the shortcut usage to the status
+        shortcut_key = self.keyboard_service.get_shortcut(action_name)
+        self.log_status(f"Keyboard shortcut [{shortcut_key}] activated: {action_name}")
+        
+        # No need to do anything here as the action is directly connected to the method
+        # The methods will be called directly by the keyboard service
 
 
 def main():

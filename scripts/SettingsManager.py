@@ -19,7 +19,10 @@ class SettingsManager:
         'window_position': None,
         'window_size': None,
         'mute_llm': True,
-        'automatic_paste': True
+        'automatic_paste': True,
+        'keyboard_shortcuts': {
+            'toggle_push_to_talk': 'f8'  # Default shortcut for push-to-talk
+        }
     }
     
     def __init__(self, settings_dir=None, settings_file='voice_commander_settings.json'):
