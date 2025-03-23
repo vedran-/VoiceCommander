@@ -499,23 +499,12 @@ class VoiceCommanderApp(QMainWindow):
     
     def toggle_push_to_talk(self):
         """Toggle push-to-talk mode"""
-        # Ensure transcription is active
-        if not self.transcription_service.is_transcribing:
-            self.transcription_service.resume_transcription()
-            
         # Toggle push-to-talk mode
         is_push_to_talk = self.transcription_service.toggle_push_to_talk()
         
         # Update status message
         status = "activated" if is_push_to_talk else "deactivated"
         self.log_status(f"Push to talk mode {status}")
-        
-        # Only attempt TTS if not muted
-        if not self.groq_service.mute_llm:
-            try:
-                self.groq_service.safe_tts_say(f"Push to talk {status}")
-            except Exception as e:
-                self.log_status(f"TTS error: {e}")
         
         # Update UI
         self.update_ui_state()

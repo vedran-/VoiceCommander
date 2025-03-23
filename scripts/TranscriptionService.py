@@ -55,8 +55,9 @@ class TranscriptionService(QObject):
         # Transcription state control
         self.is_transcribing = True
         self.transcribing_active = False  # Flag to control the transcription loop
-        self.is_push_to_talk_mode = False  # Track push-to-talk mode
-        self.push_to_talk_buffer = []  # Buffer to store audio during push-to-talk mode
+
+        self.is_push_to_talk_mode = False
+        self.pause_transcription_on_end_of_push_to_talk = False
         
         # Initialize the recognizer
         self.recognizer = KaldiRecognizer(self.vosk_service.model, self.audio_service.FRAME_RATE)
@@ -145,68 +146,21 @@ class TranscriptionService(QObject):
 
     def toggle_push_to_talk(self):
         """Toggle push-to-talk mode"""
-        # Toggle push-to-talk mode
         self.is_push_to_talk_mode = not self.is_push_to_talk_mode
-        
-        # If turning off push-to-talk, process any collected audio
-        if not self.is_push_to_talk_mode and self.push_to_talk_buffer:
-            self.process_push_to_talk_audio()
-            
-        # If turning on push-to-talk, ensure audio is recording
-        if self.is_push_to_talk_mode and not self.is_transcribing:
-            self.resume_transcription()
-            
-        return self.is_push_to_talk_mode
-    
-    def process_push_to_talk_audio(self):
-        """Process audio collected during push-to-talk mode"""
-        if not self.push_to_talk_buffer:
-            return
-            
-        try:
-            # Concatenate all audio data
-            audio_data = b''.join(self.push_to_talk_buffer)
-            self.push_to_talk_buffer = []  # Clear the buffer
-            
-            # Skip if not enough audio data is available
-            if len(audio_data) < 320:  # Minimum 20ms of audio
-                self.status_update.emit("Speech too short, ignoring")
-                return
-                
-            # Play notification sound
-            self.ping_sound.play()
-            
-            # Transcribe the audio data using GroqWhisper
-            whisper_text = self.groq_whisper_service.TranscribeAudio(audio_data)
-            if whisper_text is None:
-                return
-                
-            # Format with timestamp
-            timestamp = datetime.now().strftime("%H:%M:%S")
-            formatted_text = f"{timestamp} > {whisper_text}"
-            
-            # Emit the transcription result signal
-            self.transcription_result.emit(formatted_text)
-            
-            # Copy to clipboard
-            pyperclip.copy(whisper_text + ' ')
-            
-            # Auto-paste if enabled
-            if self.groq_whisper_service.automatic_paste:
-                pyautogui.hotkey('ctrl', 'v')
-            
-            # Send the text to LLM for further processing if not muted
-            if not self.groq_whisper_service.mute_llm:
-                self.groq_whisper_service.AddUserMessage(whisper_text)
-                
-            # Save the audio as a .wav file if configured
-            if config.SAVE_AUDIO_FILES:
-                self.save_wav(audio_data, whisper_text)
-                
-        except Exception as e:
-            error_msg = f"Error processing push-to-talk audio: {e}"
-            self.status_update.emit(error_msg)
-            self.error.emit(error_msg)
+
+        if self.is_push_to_talk_mode:
+            if not self.is_transcribing:
+                self.resume_transcription()
+                self.pause_transcription_on_end_of_push_to_talk = True
+            else:
+                self.pause_transcription_on_end_of_push_to_talk = False
+        else:
+            self.process_audio()
+            if self.pause_transcription_on_end_of_push_to_talk:
+                self.pause_transcription()
+                self.pause_transcription_on_end_of_push_to_talk = False
+
+        self.status_update.emit(f"Push-to-talk mode {'enabled' if self.is_push_to_talk_mode else 'disabled'}")
 
     def process_audio(self):
         """Process a single chunk of audio - call this regularly from a worker thread"""
@@ -216,17 +170,15 @@ class TranscriptionService(QObject):
         if not self.is_transcribing:
             # Sleep handled by caller thread
             return True
-                
+
         try:
             audio_chunk = self.audio_service.ReadChunk()
-            
-            # If in push-to-talk mode, just collect the audio
-            if self.is_push_to_talk_mode:
-                self.push_to_talk_buffer.append(audio_chunk)
-                return True
-                
-            # Normal processing for non-push-to-talk mode
+
             if self.recognizer.AcceptWaveform(audio_chunk):
+
+                if self.is_push_to_talk_mode:
+                    return True
+
                 result = json.loads(self.recognizer.Result())
                 if result.get('text'):
                     recognized_text = result['text']
