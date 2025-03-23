@@ -8,6 +8,7 @@ A voice-controlled assistant with a Qt-based user interface that listens to your
 ## Features
 
 - **Speech Recognition**: Real-time transcription of speech to text
+- **Push to Talk Mode**: Toggle between voice-activated and push-to-talk recording
 - **Automatic Clipboard Integration**: Automatically copies transcribed text to clipboard with optional paste
 - **LLM Command Processing**: Process natural language commands with Groq API
 - **Script Generation & Execution**: LLM can write and run scripts automatically
@@ -67,12 +68,14 @@ Where:
 1. **Start the application**: Launch the application using the command above
 2. **Select a microphone**: Choose your preferred audio input device from the dropdown
 3. **Start speaking**: The application will automatically transcribe your speech
-4. **Use LLM commands**: Speak commands to control the application or perform tasks
-5. **Toggle features**: Use the buttons in the UI to toggle features like muting or automatic paste
+4. **Use Push to Talk**: Click the Push to Talk button when you want to speak and click it again when done
+5. **Use LLM commands**: Speak commands to control the application or perform tasks
+6. **Toggle features**: Use the buttons in the UI to toggle features like muting or automatic paste
 
 ## UI Controls
 
 - **Stop/Start Transcription**: Pause or resume the audio transcription
+- **Push to Talk**: Toggle between push-to-talk and voice-activated modes
 - **Mute/Unmute LLM**: Toggle the LLM response on or off
 - **Enable/Disable Paste**: Toggle automatic pasting of transcribed text
 - **Reset Chat**: Clear the chat history and start a new conversation
@@ -90,7 +93,7 @@ The Voice Commander application features a clean, intuitive interface divided in
 - Reset button to clear conversation history
 
 ### Controls Section
-- **Main Controls**: Recording toggle, AI Processing toggle, and Auto-Paste toggle
+- **Main Controls**: Recording toggle, Push to Talk, AI Processing toggle, and Auto-Paste toggle
 - **Language Selection**: Switch between different languages for transcription
 - **Microphone Selection**: Choose from available audio input devices
 - **Status Area**: View real-time feedback and error messages
@@ -101,21 +104,25 @@ The interface is designed to be straightforward while providing access to all ne
 
 ### March 2025 Updates
 
-1. **Consolidated UI**: Application has been fully converted to a Qt-based interface
+1. **Push to Talk Feature**:
+   - Added button to toggle between voice-activated and push-to-talk modes
+   - Improved user control over when audio is being recorded and processed
+
+2. **Consolidated UI**: Application has been fully converted to a Qt-based interface
    - Improved user experience with intuitive controls
    - Better status feedback and error reporting
 
-2. **Improved Microphone Handling**:
+3. **Improved Microphone Handling**:
    - Fixed issues with microphone switching
    - Added proper buffer reset when changing devices
    - Enhanced error handling for audio streams
 
-3. **Persistent Settings**:
+4. **Persistent Settings**:
    - Added persistence for mute/unmute state
    - Added persistence for automatic paste settings
    - Implemented window position and size memory
 
-4. **Audio Processing Enhancements**:
+5. **Audio Processing Enhancements**:
    - Improved short audio detection and handling
    - Better synchronization between audio and transcription
    - Enhanced error handling for audio stream issues

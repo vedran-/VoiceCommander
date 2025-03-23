@@ -1,6 +1,7 @@
 import torch
 import numpy as np
 import wave
+import time
 from datetime import datetime
 from scripts.AudioService import AudioService
 
@@ -42,7 +43,6 @@ class SpeechRecorder:
                 
                 # If no speech detected for a while, wait longer before processing the next chunk
                 if no_speech_counter > 100:  # Adjust this value as needed
-                    import time
                     time.sleep(0.1)  # Adjust this value as needed
             except Exception as e:
                 print(f"Error processing audio: {e}")

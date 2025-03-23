@@ -257,6 +257,12 @@ class VoiceCommanderApp(QMainWindow):
         self.record_button.setStyleSheet(button_style)
         button_layout.addWidget(self.record_button)
         
+        # Push to Talk button
+        self.push_to_talk_button = QPushButton("Push to Talk")
+        self.push_to_talk_button.clicked.connect(self.toggle_push_to_talk)
+        self.push_to_talk_button.setStyleSheet(button_style)
+        button_layout.addWidget(self.push_to_talk_button)
+        
         # LLM processing toggle button
         self.mute_button = QPushButton("AI Processing: On")
         self.mute_button.clicked.connect(self.toggle_mute)
@@ -396,6 +402,11 @@ class VoiceCommanderApp(QMainWindow):
         self.record_button.setText("Recording" if is_recording else "Start Transcription")
         self.record_button.setStyleSheet(active_style if is_recording else inactive_style)
         
+        # Update push to talk button
+        is_push_to_talk = self.transcription_service.is_push_to_talk_mode
+        self.push_to_talk_button.setText("Stop Talking" if is_push_to_talk else "Push to Talk")
+        self.push_to_talk_button.setStyleSheet(active_style if is_push_to_talk else inactive_style)
+        
         # Update mute button
         is_muted = self.groq_service.mute_llm
         self.mute_button.setText(f"AI Processing: {'Off' if is_muted else 'On'}")
@@ -477,10 +488,37 @@ class VoiceCommanderApp(QMainWindow):
     # UI event handlers
     def toggle_recording(self):
         """Toggle the recording state"""
+        # If push-to-talk is active, deactivate it first
+        if self.transcription_service.is_push_to_talk_mode:
+            self.toggle_push_to_talk()
+            
         if self.transcription_service.is_transcribing:
             self.transcription_service.pause_transcription()
         else:
             self.transcription_service.resume_transcription()
+    
+    def toggle_push_to_talk(self):
+        """Toggle push-to-talk mode"""
+        # Ensure transcription is active
+        if not self.transcription_service.is_transcribing:
+            self.transcription_service.resume_transcription()
+            
+        # Toggle push-to-talk mode
+        is_push_to_talk = self.transcription_service.toggle_push_to_talk()
+        
+        # Update status message
+        status = "activated" if is_push_to_talk else "deactivated"
+        self.log_status(f"Push to talk mode {status}")
+        
+        # Only attempt TTS if not muted
+        if not self.groq_service.mute_llm:
+            try:
+                self.groq_service.safe_tts_say(f"Push to talk {status}")
+            except Exception as e:
+                self.log_status(f"TTS error: {e}")
+        
+        # Update UI
+        self.update_ui_state()
     
     def toggle_mute(self):
         """Toggle LLM mute state"""
