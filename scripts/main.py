@@ -2,11 +2,20 @@ import sys
 import os
 import logging
 import time
+import json
+import random
+import importlib
+import platform
+import keyboard  # Import the keyboard library we're using
+from datetime import datetime
 from PyQt6.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QPushButton
 from PyQt6.QtWidgets import QTextEdit, QLabel, QComboBox, QSplitter, QGroupBox, QGridLayout, QScrollArea
-from PyQt6.QtCore import Qt, QThread, pyqtSignal, pyqtSlot, QMetaObject, QTimer
-from PyQt6.QtGui import QColor, QTextCursor, QFont, QIcon
-from pynput import keyboard
+from PyQt6.QtWidgets import QListWidget, QListWidgetItem  # Added for list widget
+from PyQt6.QtCore import Qt, QThread, pyqtSignal, pyqtSlot, QMetaObject, QTimer, QPoint, QSettings, QSize
+from PyQt6.QtGui import QColor, QTextCursor, QFont, QIcon, QPalette, QAction, QPixmap, QCloseEvent, QPainter, QBrush
+from functools import partial  # Added for creating button callbacks
+import wave  # Added for reading WAV files
+import pygame  # Added for playing audio
 
 # Import our services
 from . import dependencies
@@ -58,6 +67,72 @@ class AudioProcessingWorker(QThread):
         self.quit()
         self.wait()
 
+class TranscriptionListItem(QWidget):
+    """Custom widget for displaying a transcription item in the list"""
+    
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.audio_path = None
+        self.setup_ui()
+        
+    def setup_ui(self):
+        """Set up the UI components for this widget"""
+        # Main layout
+        main_layout = QVBoxLayout(self)
+        main_layout.setContentsMargins(5, 5, 5, 5)
+        main_layout.setSpacing(3)
+        
+        # Top row with timestamp and buttons
+        top_layout = QHBoxLayout()
+        
+        # Timestamp label
+        self.timestamp_label = QLabel()
+        self.timestamp_label.setStyleSheet("color: #666666; font-weight: bold;")
+        top_layout.addWidget(self.timestamp_label)
+        
+        top_layout.addStretch(1)  # Push buttons to the right
+        
+        # Play button
+        self.play_button = QPushButton("Play")
+        self.play_button.setFixedWidth(80)
+        self.play_button.setEnabled(False)  # Disabled by default until audio_path is set
+        top_layout.addWidget(self.play_button)
+        
+        # Transcribe Again button
+        self.transcribe_button = QPushButton("Transcribe Again")
+        self.transcribe_button.setFixedWidth(120)
+        self.transcribe_button.setEnabled(False)  # Disabled by default until audio_path is set
+        top_layout.addWidget(self.transcribe_button)
+        
+        main_layout.addLayout(top_layout)
+        
+        # Text content
+        self.text_label = QLabel()
+        self.text_label.setWordWrap(True)
+        self.text_label.setStyleSheet("color: #c2a000;")  # Same color as user text in original UI
+        main_layout.addWidget(self.text_label)
+        
+        # Set a minimum width for better layout
+        self.setMinimumWidth(400)
+        
+    def setData(self, timestamp, text, audio_path):
+        """Set the data for this item"""
+        self.timestamp_label.setText(f"{timestamp} >")
+        self.text_label.setText(text)
+        self.audio_path = audio_path
+        
+        # Enable/disable buttons based on audio path availability
+        self.play_button.setEnabled(audio_path is not None)
+        self.transcribe_button.setEnabled(audio_path is not None)
+        
+    def getText(self):
+        """Get the current text"""
+        return self.text_label.text()
+        
+    def updateText(self, new_text):
+        """Update the displayed text"""
+        self.text_label.setText(new_text)
+
 class VoiceCommanderApp(QMainWindow):
     """
     Main application window for Voice Commander
@@ -96,6 +171,9 @@ class VoiceCommanderApp(QMainWindow):
         
         # Build UI after services are initialized
         self.setup_ui()
+        
+        # Update UI state
+        self.update_ui_state()
         
         # Start audio processing
         self.start_audio_processing()
@@ -242,10 +320,12 @@ class VoiceCommanderApp(QMainWindow):
         # Add the header to the chat layout
         chat_layout.addLayout(header_layout)
         
-        self.chat_display = QTextEdit()
-        self.chat_display.setReadOnly(True)
+        # Replace QTextEdit with QListWidget for transcriptions
+        self.chat_display = QListWidget()
         self.chat_display.setStyleSheet("background-color: #f0f0f0;")
         self.chat_display.setFont(QFont("Segoe UI", 11))
+        self.chat_display.setSpacing(2)  # Add spacing between items
+        self.chat_display.setWordWrap(True)
         chat_layout.addWidget(self.chat_display)
         
         splitter.addWidget(chat_container)
@@ -418,11 +498,13 @@ class VoiceCommanderApp(QMainWindow):
         
         # Update recording button - only show green when recording
         is_recording = self.transcription_service.is_transcribing
+        is_push_to_talk = self.transcription_service.is_push_to_talk_mode
         self.record_button.setText("Recording" if is_recording else "Start Transcription")
         self.record_button.setStyleSheet(active_style if is_recording else inactive_style)
+        # Disable the record button when push-to-talk is active
+        self.record_button.setEnabled(not is_push_to_talk)
         
         # Update push to talk button
-        is_push_to_talk = self.transcription_service.is_push_to_talk_mode
         self.push_to_talk_button.setText("Stop Talking" if is_push_to_talk else "Push to Talk")
         self.push_to_talk_button.setStyleSheet(active_style if is_push_to_talk else inactive_style)
         
@@ -445,18 +527,24 @@ class VoiceCommanderApp(QMainWindow):
         self.audio_worker = AudioProcessingWorker(self.transcription_service)
         self.audio_worker.start()
         
-        self.log_status("Audio processing started")
+        self.log_status("Audio processing initialized. Click 'Start Transcription' to begin recording.")
     
     # Signal handlers
-    @pyqtSlot(str)
-    def on_transcription_result(self, text):
+    @pyqtSlot(dict)  # Updated to receive dict instead of str
+    def on_transcription_result(self, result_data):
         """Handle new transcription result"""
-        self.add_chat_message(text, is_user=True)
+        # Extract data from the dictionary
+        timestamp = result_data.get('timestamp', '')
+        text = result_data.get('text', '')
+        audio_path = result_data.get('audio_path')
+        
+        # Add as a transcription item
+        self.add_transcription_item(timestamp, text, audio_path)
     
     @pyqtSlot(str)
     def on_llm_response(self, text):
         """Handle LLM response"""
-        self.add_chat_message(text, is_user=False)
+        self.add_ai_response(text)
     
     @pyqtSlot(str)
     def on_error(self, error_msg):
@@ -468,25 +556,78 @@ class VoiceCommanderApp(QMainWindow):
         """Handle audio state change"""
         self.record_button.setText("Recording" if is_recording else "Start Transcription")
     
+    def add_transcription_item(self, timestamp, text, audio_path):
+        """Add a user transcription as a custom list item"""
+        # Create the custom widget
+        item_widget = TranscriptionListItem()
+        item_widget.setData(timestamp, text, audio_path)
+        
+        # Connect button signals
+        if audio_path:
+            item_widget.play_button.clicked.connect(
+                partial(self.play_audio, audio_path)
+            )
+            item_widget.transcribe_button.clicked.connect(
+                partial(self.retranscribe_audio, audio_path, item_widget)
+            )
+        
+        # Create a list item and set its size
+        list_item = QListWidgetItem(self.chat_display)
+        # Adjust for multi-line text - calculate approximate height
+        text_lines = max(1, (len(text) // 40) + 1)  # Rough estimate of line count
+        item_height = 60 + (text_lines * 20)  # Base height + extra per line
+        list_item.setSizeHint(QSize(self.chat_display.width(), item_height))
+        
+        # Add the widget to the list item
+        self.chat_display.addItem(list_item)
+        self.chat_display.setItemWidget(list_item, item_widget)
+        
+        # Scroll to the new item
+        self.chat_display.scrollToItem(list_item)
+    
+    def add_ai_response(self, text):
+        """Add an AI response message to the chat display"""
+        # Create a QLabel for the AI response
+        label = QLabel(text)
+        label.setWordWrap(True)
+        label.setStyleSheet("color: #0078d7; padding: 5px;")  # Same color as AI text in original UI
+        
+        # Create a list item and set its size
+        list_item = QListWidgetItem(self.chat_display)
+        # Adjust for multi-line text - calculate approximate height
+        text_lines = max(1, (len(text) // 40) + 1)  # Rough estimate of line count
+        item_height = 30 + (text_lines * 20)  # Base height + extra per line
+        list_item.setSizeHint(QSize(self.chat_display.width(), item_height))
+        
+        # Add the widget to the list item
+        self.chat_display.addItem(list_item)
+        self.chat_display.setItemWidget(list_item, label)
+        
+        # Scroll to the new item
+        self.chat_display.scrollToItem(list_item)
+    
+    # Add back the legacy method for compatibility
     def add_chat_message(self, text, is_user=True):
-        """Add a message to the chat display"""
-        cursor = self.chat_display.textCursor()
-        cursor.movePosition(QTextCursor.MoveOperation.End)
-        
-        # Format based on message type
-        if is_user:
-            # Format: timestamp > user_message
-            formatted_text = f"<span style='color:#c2a000;'>{text}</span>"
+        """Legacy method maintained for compatibility"""
+        if is_user and isinstance(text, dict):
+            # Handle new format
+            timestamp = text.get('timestamp', '')
+            message = text.get('text', '')
+            audio_path = text.get('audio_path')
+            self.add_transcription_item(timestamp, message, audio_path)
+        elif is_user and isinstance(text, str):
+            # Try to extract timestamp and message from string format "HH:MM:SS > message"
+            parts = text.split('>', 1)
+            if len(parts) == 2:
+                timestamp = parts[0].strip()
+                message = parts[1].strip()
+                self.add_transcription_item(timestamp, message, None)
+            else:
+                # Fallback
+                self.add_transcription_item(datetime.now().strftime("%H:%M:%S"), text, None)
         else:
-            # Format: AI response
-            formatted_text = f"<span style='color:#0078d7;'>{text}</span>"
-        
-        cursor.insertHtml(formatted_text)
-        cursor.insertHtml("<br>")
-        
-        # Scroll to bottom
-        self.chat_display.setTextCursor(cursor)
-        self.chat_display.ensureCursorVisible()
+            # AI response
+            self.add_ai_response(text)
     
     def log_status(self, message):
         """Add a message to the status log"""
@@ -771,14 +912,50 @@ class VoiceCommanderApp(QMainWindow):
         button.setText("Press any key...")
         button.setStyleSheet("QPushButton { background-color: #ffcccc; }")
         
-        # Create a listener for a single key press
-        def on_key_press(key):
-            try:
-                # Get a standardized key name
-                key_str = self.keyboard_service._normalize_key(key)
+        # Store the original shortcuts so we can restore them later
+        original_shortcuts = {}
+        try:
+            # Temporarily stop all shortcut listeners while recording
+            keyboard.unhook_all_hotkeys()
+            logger.debug("Temporarily unhooked all hotkeys for shortcut recording")
+        except Exception as e:
+            logger.error(f"Error unhooking hotkeys for recording: {e}")
+        
+        # Flag to track if key was recorded
+        key_recorded = False
+        
+        # Use the keyboard library to record the next keystroke
+        def on_key_event(e):
+            nonlocal key_recorded
+            
+            if key_recorded:
+                return
                 
-                # Check if this is a cancel key (Escape or Delete)
-                if self.keyboard_service.is_cancel_key(key_str):
+            try:
+                # Mark key as recorded to prevent multiple triggers
+                key_recorded = True
+                
+                # Get the key name from the event
+                key_str = e.name
+                
+                # For modifier combinations, get the full hotkey name
+                modifiers = []
+                if keyboard.is_pressed('ctrl'):
+                    modifiers.append('ctrl')
+                if keyboard.is_pressed('alt'):
+                    modifiers.append('alt')
+                if keyboard.is_pressed('shift'):
+                    modifiers.append('shift')
+                
+                # Build final key string
+                if modifiers and key_str not in modifiers:
+                    if len(key_str) == 1:  # Single character key
+                        key_str = '+'.join(modifiers + [key_str])
+                    else:  # Special key
+                        key_str = '+'.join(modifiers + [key_str])
+                
+                # Check if this is a cancel key
+                if key_str.lower() in self.keyboard_service.CANCEL_KEYS:
                     # Clear the shortcut
                     self.keyboard_service.set_shortcut(action_name, None)
                     
@@ -790,33 +967,40 @@ class VoiceCommanderApp(QMainWindow):
                     # Update the shortcut
                     self.keyboard_service.set_shortcut(action_name, key_str)
                     
-                    # Get a friendly display name for the key
-                    display_name = key_str
-                    if key_str.startswith("vk") or key_str.startswith("Key_0x"):
-                        display_name = self.keyboard_service.get_friendly_key_name(key_str)
-                    
                     # Update the button on the main thread
-                    button.setText(display_name)
+                    button.setText(key_str)
                     button.setStyleSheet("")
-                    self.log_status(f"Shortcut for {action_name} set to {display_name}")
+                    self.log_status(f"Shortcut for {action_name} set to {key_str}")
+            
+                # Clean up and unregister the hook
+                keyboard.unhook(hook_id)
+                
+                # Re-register all shortcuts after we're done
+                self.keyboard_service._register_all_shortcuts()
+                
             except Exception as e:
                 logger.error(f"Error in shortcut key handler: {e}")
                 button.setText(original_text)
                 button.setStyleSheet("")
-                
-            # Stop the listener
-            return False  # Stop listening
+                # Re-register all shortcuts
+                self.keyboard_service._register_all_shortcuts()
         
-        # Create and start a listener in a new thread
-        listener = keyboard.Listener(on_press=on_key_press)
-        listener.daemon = True
-        listener.start()
+        # Hook the keyboard event
+        hook_id = keyboard.hook(on_key_event)
         
         # Add a timeout to reset the button if no key is pressed
         def reset_button():
-            if button.text() == "Press any key...":
+            nonlocal key_recorded
+            if not key_recorded and button.text() == "Press any key...":
                 button.setText(original_text)
                 button.setStyleSheet("")
+                # Clean up hook if still active
+                try:
+                    keyboard.unhook(hook_id)
+                except:
+                    pass
+                # Re-register all shortcuts
+                self.keyboard_service._register_all_shortcuts()
                 
         # Schedule the reset after 5 seconds
         QTimer.singleShot(5000, reset_button)
@@ -839,6 +1023,54 @@ class VoiceCommanderApp(QMainWindow):
         # No need to do anything here as the action is directly connected to the method
         # The methods will be called directly by the keyboard service
 
+    def play_audio(self, audio_path):
+        """Play the audio file at the given path"""
+        if not audio_path or not os.path.exists(audio_path):
+            self.log_status(f"Error: Audio file not found at {audio_path}")
+            return
+            
+        try:
+            # Use pygame mixer to play the audio file
+            sound = pygame.mixer.Sound(audio_path)
+            sound.play()
+            self.log_status(f"Playing audio: {os.path.basename(audio_path)}")
+        except Exception as e:
+            self.log_status(f"Error playing audio: {e}")
+    
+    def retranscribe_audio(self, audio_path, item_widget):
+        """Re-transcribe the audio file at the given path"""
+        if not audio_path or not os.path.exists(audio_path):
+            self.log_status(f"Error: Audio file not found at {audio_path}")
+            return
+            
+        try:
+            # Read the audio file
+            with wave.open(audio_path, 'rb') as wf:
+                # Get the audio data
+                audio_data = wf.readframes(wf.getnframes())
+            
+            # Use the transcription service to re-transcribe
+            new_text = self.transcription_service.groq_whisper_service.TranscribeAudio(audio_data)
+            
+            if new_text:
+                # Update the widget with the new transcription
+                item_widget.updateText(new_text)
+                
+                # Adjust the size of the list item to fit the new text
+                # Find the list item that contains this widget
+                for i in range(self.chat_display.count()):
+                    list_item = self.chat_display.item(i)
+                    if self.chat_display.itemWidget(list_item) == item_widget:
+                        text_lines = max(1, (len(new_text) // 40) + 1)
+                        item_height = 60 + (text_lines * 20)
+                        list_item.setSizeHint(QSize(self.chat_display.width(), item_height))
+                        break
+                
+                self.log_status(f"Re-transcribed audio: {new_text}")
+            else:
+                self.log_status("Transcription failed")
+        except Exception as e:
+            self.log_status(f"Error re-transcribing audio: {e}")
 
 def main():
     """Main entry point for the Qt application"""

@@ -25,7 +25,7 @@ class TranscriptionService(QObject):
     """
     
     # Define Qt signals
-    transcription_result = pyqtSignal(str)  # Emitted when new transcription is available
+    transcription_result = pyqtSignal(dict)  # Emitted when new transcription is available (dict: {'timestamp': str, 'text': str, 'audio_path': str | None})
     llm_response = pyqtSignal(str)          # Emitted when LLM responds
     audio_state_changed = pyqtSignal(bool)  # Emitted when audio recording state changes (True=recording, False=paused)
     status_update = pyqtSignal(str)         # Emitted for status updates
@@ -188,7 +188,7 @@ class TranscriptionService(QObject):
                     textData = result['result']
 
                     textStartTime = textData[0]['start']
-                    if textData[0]['end'] - textStartTime > 0.5:    # Don't allow single words longer than 0.5s
+                    if textData[0]['end'] - textStartTime > 2.5:    # Don't allow single words longer than 0.5s
                         textStartTime = textData[0]['end'] - 1.5
                     textEndTime = textData[-1]['end']
                     textDuration = textEndTime - textStartTime
@@ -229,10 +229,20 @@ class TranscriptionService(QObject):
                 self.groq_whisper_service.mute_llm = False
 
             timestamp = datetime.now().strftime("%H:%M:%S")
-            formatted_text = f"{timestamp} > {whisper_text}"
+            # formatted_text = f"{timestamp} > {whisper_text}" # Old format
+
+            audio_path = None
+            # Save the accumulated audio as a .wav file if enabled
+            if config.SAVE_AUDIO_FILES:
+                audio_path = self.save_wav(audio_data, whisper_text)
             
-            # Emit the transcription result signal
-            self.transcription_result.emit(formatted_text)
+            # Emit the structured transcription result signal
+            result_data = {
+                'timestamp': timestamp,
+                'text': whisper_text,
+                'audio_path': audio_path
+            }
+            self.transcription_result.emit(result_data)
 
             pyperclip.copy(whisper_text + ' ')
 
@@ -244,9 +254,7 @@ class TranscriptionService(QObject):
             if self.groq_whisper_service.mute_llm == False:
                 self.groq_whisper_service.AddUserMessage(whisper_text)
 
-            # Save the accumulated audio as a .wav file
-            if config.SAVE_AUDIO_FILES:
-                self.save_wav(audio_data, whisper_text)
+            # Removed saving here, it's now part of the conditional block above
                 
         except Exception as e:
             error_msg = f"Error handling speech recognition: {e}"
@@ -254,7 +262,7 @@ class TranscriptionService(QObject):
             self.error.emit(error_msg)
 
     def save_wav(self, audio_data, text):
-        """Save recorded audio to a WAV file"""
+        """Save recorded audio to a WAV file and return the filename."""
         try:
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             safe_text = ''.join(c for c in text if c not in self.INVALID_CHARACTERS)[:120]
@@ -265,11 +273,14 @@ class TranscriptionService(QObject):
                 wf.setsampwidth(self.audio_service.BYTES_PER_SAMPLE)  # 2 bytes for 'int16' as used by PyAudio
                 wf.setframerate(self.audio_service.FRAME_RATE)
                 wf.writeframes(audio_data)
+            
+            return filename # Return the filename
                 
         except Exception as e:
             error_msg = f"Error saving WAV file: {e}"
             self.status_update.emit(error_msg)
             self.error.emit(error_msg)
+            return None # Return None on error
 
     def reset_recognizer(self):
         """Reset and recreate the recognizer - call this when changing microphones"""
