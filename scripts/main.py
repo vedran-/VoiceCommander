@@ -84,40 +84,46 @@ class TranscriptionListItem(QWidget):
         main_layout = QHBoxLayout(self)
         main_layout.setContentsMargins(8, 6, 8, 6)  # Slightly increased for better spacing
         main_layout.setSpacing(8)  # Slightly increased for better spacing
+        main_layout.setAlignment(Qt.AlignmentFlag.AlignVCenter)  # Ensure vertical centering
         
         # Timestamp label with better styling
         self.timestamp_label = QLabel()
-        self.timestamp_label.setStyleSheet("color: #555555; font-weight: 600; font-family: 'Segoe UI', sans-serif;")
+        self.timestamp_label.setStyleSheet("color: #8892b0; font-weight: 600; font-family: 'Segoe UI', sans-serif;")
         self.timestamp_label.setFixedWidth(80)
         main_layout.addWidget(self.timestamp_label)
         
         # Text content - expand horizontally with better styling
         self.text_label = QLabel()
         self.text_label.setWordWrap(True)
-        self.text_label.setStyleSheet("color: #333333; font-size: 11pt; font-family: 'Segoe UI', sans-serif;")
+        self.text_label.setStyleSheet("color: #505a7a; font-size: 11pt; font-family: 'Segoe UI', sans-serif;")
         main_layout.addWidget(self.text_label, 1)  # Add stretch factor of 1 to expand
         
         # Button container
         button_layout = QHBoxLayout()
         button_layout.setSpacing(8)  # Increased spacing between buttons
+        button_layout.setAlignment(Qt.AlignmentFlag.AlignVCenter)  # Ensure vertical centering
         
         # Button style
         button_style = """
             QPushButton {
-                background-color: #f0f0f0;
+                background-color: #f1f3fa;
                 border: none;
-                border-radius: 4px;
-                padding: 4px;
+                border-radius: 5px;
+                padding: 5px;
+                min-height: 28px;
+                max-height: 28px;
             }
             QPushButton:hover {
-                background-color: #e0e0e0;
+                background-color: #e1e5ee;
             }
             QPushButton:pressed {
-                background-color: #d0d0d0;
+                background-color: #d1d6e6;
+                min-height: 28px;
+                max-height: 28px;
             }
             QPushButton:disabled {
-                background-color: #f8f8f8;
-                color: #b0b0b0;
+                background-color: #f5f7fd;
+                color: #a8b3d2;
             }
         """
         
@@ -181,16 +187,20 @@ class TranscriptionListItem(QWidget):
             self.play_button.setToolTip("Stop playback")
             self.play_button.setStyleSheet("""
                 QPushButton {
-                    background-color: #ffead7;
+                    background-color: #f5e7ff;
                     border: none;
-                    border-radius: 4px;
-                    padding: 4px;
+                    border-radius: 5px;
+                    padding: 5px;
+                    min-height: 28px;
+                    max-height: 28px;
                 }
                 QPushButton:hover {
-                    background-color: #ffdcbf;
+                    background-color: #ead6f5;
                 }
                 QPushButton:pressed {
-                    background-color: #ffcfa7;
+                    background-color: #dfc5eb;
+                    min-height: 28px;
+                    max-height: 28px;
                 }
             """)
         else:
@@ -198,20 +208,24 @@ class TranscriptionListItem(QWidget):
             self.play_button.setToolTip("Play audio")
             self.play_button.setStyleSheet("""
                 QPushButton {
-                    background-color: #f0f0f0;
+                    background-color: #f1f3fa;
                     border: none;
-                    border-radius: 4px;
-                    padding: 4px;
+                    border-radius: 5px;
+                    padding: 5px;
+                    min-height: 28px;
+                    max-height: 28px;
                 }
                 QPushButton:hover {
-                    background-color: #e0e0e0;
+                    background-color: #e1e5ee;
                 }
                 QPushButton:pressed {
-                    background-color: #d0d0d0;
+                    background-color: #d1d6e6;
+                    min-height: 28px;
+                    max-height: 28px;
                 }
                 QPushButton:disabled {
-                    background-color: #f8f8f8;
-                    color: #b0b0b0;
+                    background-color: #f5f7fd;
+                    color: #a8b3d2;
                 }
             """)
         
@@ -240,15 +254,15 @@ class VoiceCommanderApp(QMainWindow):
         # Apply application-wide style
         self.setStyleSheet("""
             QMainWindow {
-                background-color: #f5f7fa;
+                background-color: #f8f9fc;
             }
             QWidget {
                 font-family: 'Segoe UI', sans-serif;
             }
             QGroupBox {
                 font-weight: bold;
-                border: 1px solid #d0d0d0;
-                border-radius: 6px;
+                border: 1px solid #e1e5ee;
+                border-radius: 8px;
                 margin-top: 12px;
                 background-color: #ffffff;
             }
@@ -256,34 +270,42 @@ class VoiceCommanderApp(QMainWindow):
                 subcontrol-origin: margin;
                 left: 10px;
                 padding: 0 5px;
-                color: #444444;
+                color: #505a7a;
             }
             QLabel {
-                color: #333333;
+                color: #505a7a;
             }
             QComboBox {
-                border: 1px solid #c0c0c0;
-                border-radius: 4px;
-                padding: 4px;
+                border: 1px solid #dee2ec;
+                border-radius: 6px;
+                padding: 5px;
                 background-color: #ffffff;
+                color: #505a7a;
             }
             QComboBox::drop-down {
                 border: none;
                 width: 24px;
             }
+            QComboBox QAbstractItemView {
+                background-color: #ffffff;
+                border: 1px solid #dee2ec;
+                border-radius: 6px;
+                selection-background-color: #f1f3fa;
+                selection-color: #505a7a;
+            }
             QScrollBar:vertical {
                 border: none;
-                background: #f0f0f0;
+                background: #f1f3fa;
                 width: 8px;
                 margin: 0px;
             }
             QScrollBar::handle:vertical {
-                background: #c0c0c0;
+                background: #cbd2e6;
                 border-radius: 4px;
                 min-height: 20px;
             }
             QScrollBar::handle:vertical:hover {
-                background: #a0a0a0;
+                background: #a8b3d2;
             }
             QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
                 border: none;
@@ -292,17 +314,17 @@ class VoiceCommanderApp(QMainWindow):
             }
             QScrollBar:horizontal {
                 border: none;
-                background: #f0f0f0;
+                background: #f1f3fa;
                 height: 8px;
                 margin: 0px;
             }
             QScrollBar::handle:horizontal {
-                background: #c0c0c0;
+                background: #cbd2e6;
                 border-radius: 4px;
                 min-width: 20px;
             }
             QScrollBar::handle:horizontal:hover {
-                background: #a0a0a0;
+                background: #a8b3d2;
             }
             QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {
                 border: none;
@@ -310,28 +332,29 @@ class VoiceCommanderApp(QMainWindow):
                 width: 0px;
             }
             QSplitter::handle {
-                background-color: #d0d0d0;
+                background-color: #e1e5ee;
                 height: 1px;
             }
             QListWidget {
-                border: 1px solid #d0d0d0;
-                border-radius: 6px;
+                border: 1px solid #e1e5ee;
+                border-radius: 8px;
                 background-color: #ffffff;
-                alternate-background-color: #f9f9f9;
+                alternate-background-color: #f8f9fc;
             }
             QListWidget::item {
-                border-bottom: 1px solid #f0f0f0;
-                padding: 2px;
+                border-bottom: 1px solid #f1f3fa;
+                padding: 3px;
             }
             QListWidget::item:selected {
-                background-color: #e7f0fd;
-                color: #000000;
+                background-color: #eef1fa;
+                color: #505a7a;
             }
             QTextEdit {
-                border: 1px solid #d0d0d0;
-                border-radius: 6px;
+                border: 1px solid #e1e5ee;
+                border-radius: 8px;
                 background-color: #ffffff;
-                selection-background-color: #c2dbff;
+                selection-background-color: #d7dffa;
+                color: #505a7a;
             }
         """)
         
@@ -489,25 +512,25 @@ class VoiceCommanderApp(QMainWindow):
         # Conversation header with Reset button
         header_layout = QHBoxLayout()
         chat_label = QLabel("Conversation")
-        chat_label.setStyleSheet("font-weight: bold; font-size: 14px; color: #444444;")
+        chat_label.setStyleSheet("font-weight: bold; font-size: 14px; color: #505a7a;")
         header_layout.addWidget(chat_label)
         
         # Define button style with modern look
         button_style = """
             QPushButton {
                 min-width: 110px;
-                padding: 6px;
-                border-radius: 5px;
+                padding: 8px;
+                border-radius: 6px;
                 border: none;
-                background-color: #f0f0f0;
-                color: #444444;
+                background-color: #f1f3fa;
+                color: #505a7a;
                 font-weight: 600;
             }
             QPushButton:hover {
-                background-color: #e0e0e0;
+                background-color: #e1e5ee;
             }
             QPushButton:pressed {
-                background-color: #d0d0d0;
+                background-color: #d1d6e6;
             }
         """
         
@@ -527,16 +550,22 @@ class VoiceCommanderApp(QMainWindow):
         # Replace QTextEdit with QListWidget for transcriptions
         self.chat_display = QListWidget()
         self.chat_display.setAlternatingRowColors(True)  # Add alternating row colors
+        self.chat_display.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)  # Disable horizontal scrollbar
         self.chat_display.setStyleSheet("""
             QListWidget {
-                border: 1px solid #d0d0d0;
-                border-radius: 6px;
+                border: 1px solid #e1e5ee;
+                border-radius: 8px;
                 background-color: #ffffff;
-                alternate-background-color: #f9f9f9;
+                alternate-background-color: #f8f9fc;
+                padding: 3px;
             }
             QListWidget::item {
-                border-bottom: 1px solid #f0f0f0;
-                padding: 2px;
+                border-bottom: 1px solid #f1f3fa;
+                padding: 3px;
+                border-radius: 6px;
+            }
+            QListWidget::item:hover {
+                background-color: #f5f7fd;
             }
         """)
         self.chat_display.setFont(QFont("Segoe UI", 11))
@@ -548,7 +577,7 @@ class VoiceCommanderApp(QMainWindow):
         
         # Controls area
         controls_container = QWidget()
-        controls_container.setStyleSheet("background-color: #f5f7fa;")
+        controls_container.setStyleSheet("background-color: #f8f9fc;")
         controls_layout = QVBoxLayout(controls_container)
         controls_layout.setSpacing(10)  # Increased spacing between group boxes
         controls_layout.setContentsMargins(0, 0, 0, 0)  # Remove container margins
@@ -558,8 +587,8 @@ class VoiceCommanderApp(QMainWindow):
         controls_group.setStyleSheet("""
             QGroupBox {
                 font-weight: bold;
-                border: 1px solid #d0d0d0;
-                border-radius: 6px;
+                border: 1px solid #e1e5ee;
+                border-radius: 8px;
                 margin-top: 12px;
                 background-color: #ffffff;
             }
@@ -567,7 +596,7 @@ class VoiceCommanderApp(QMainWindow):
                 subcontrol-origin: margin;
                 left: 10px;
                 padding: 0 5px;
-                color: #444444;
+                color: #505a7a;
             }
         """)
         controls_grid = QGridLayout()
@@ -579,22 +608,26 @@ class VoiceCommanderApp(QMainWindow):
         active_button_style = """
             QPushButton {
                 min-width: 110px;
-                padding: 6px;
-                border-radius: 5px;
+                min-height: 36px;
+                max-height: 36px;
+                padding: 8px;
+                border-radius: 6px;
                 border: none;
-                background-color: #4da6ff;
+                background-color: #5b87f7;
                 color: white;
                 font-weight: 600;
             }
             QPushButton:hover {
-                background-color: #3d96ef;
+                background-color: #4a76e6;
             }
             QPushButton:pressed {
-                background-color: #2d86df;
+                background-color: #3a65d5;
+                min-height: 36px;
+                max-height: 36px;
             }
             QPushButton:disabled {
-                background-color: #cccccc;
-                color: #666666;
+                background-color: #d1d6e6;
+                color: #9aa3bc;
             }
         """
         
@@ -602,22 +635,26 @@ class VoiceCommanderApp(QMainWindow):
         inactive_button_style = """
             QPushButton {
                 min-width: 110px;
-                padding: 6px;
-                border-radius: 5px;
+                min-height: 36px;
+                max-height: 36px;
+                padding: 8px;
+                border-radius: 6px;
                 border: none;
-                background-color: #f0f0f0;
-                color: #444444;
+                background-color: #f1f3fa;
+                color: #505a7a;
                 font-weight: 600;
             }
             QPushButton:hover {
-                background-color: #e0e0e0;
+                background-color: #e1e5ee;
             }
             QPushButton:pressed {
-                background-color: #d0d0d0;
+                background-color: #d1d6e6;
+                min-height: 36px;
+                max-height: 36px;
             }
             QPushButton:disabled {
-                background-color: #f8f8f8;
-                color: #aaaaaa;
+                background-color: #f5f7fd;
+                color: #a8b3d2;
             }
         """
         
@@ -758,22 +795,26 @@ class VoiceCommanderApp(QMainWindow):
         active_button_style = """
             QPushButton {
                 min-width: 110px;
-                padding: 6px;
-                border-radius: 5px;
+                min-height: 36px;
+                max-height: 36px;
+                padding: 8px;
+                border-radius: 6px;
                 border: none;
-                background-color: #4da6ff;
+                background-color: #5b87f7;
                 color: white;
                 font-weight: 600;
             }
             QPushButton:hover {
-                background-color: #3d96ef;
+                background-color: #4a76e6;
             }
             QPushButton:pressed {
-                background-color: #2d86df;
+                background-color: #3a65d5;
+                min-height: 36px;
+                max-height: 36px;
             }
             QPushButton:disabled {
-                background-color: #cccccc;
-                color: #666666;
+                background-color: #d1d6e6;
+                color: #9aa3bc;
             }
         """
         
@@ -781,22 +822,26 @@ class VoiceCommanderApp(QMainWindow):
         inactive_button_style = """
             QPushButton {
                 min-width: 110px;
-                padding: 6px;
-                border-radius: 5px;
+                min-height: 36px;
+                max-height: 36px;
+                padding: 8px;
+                border-radius: 6px;
                 border: none;
-                background-color: #f0f0f0;
-                color: #444444;
+                background-color: #f1f3fa;
+                color: #505a7a;
                 font-weight: 600;
             }
             QPushButton:hover {
-                background-color: #e0e0e0;
+                background-color: #e1e5ee;
             }
             QPushButton:pressed {
-                background-color: #d0d0d0;
+                background-color: #d1d6e6;
+                min-height: 36px;
+                max-height: 36px;
             }
             QPushButton:disabled {
-                background-color: #f8f8f8;
-                color: #aaaaaa;
+                background-color: #f5f7fd;
+                color: #a8b3d2;
             }
         """
         
@@ -886,7 +931,7 @@ class VoiceCommanderApp(QMainWindow):
         # Create a list item and set its size
         list_item = QListWidgetItem(self.chat_display)
         # Use a fixed, smaller height for a leaner look
-        item_height = 32  # Reduced from 40 to 32 for a leaner look
+        item_height = 40  # Increased from 32 to 40 to fix vertical centering
         list_item.setSizeHint(QSize(self.chat_display.width(), item_height))
         
         # Add the widget to the list item
@@ -907,10 +952,10 @@ class VoiceCommanderApp(QMainWindow):
         label = QLabel(text)
         label.setWordWrap(True)
         label.setStyleSheet("""
-            color: #0066cc; 
-            background-color: #e7f0fd; 
+            color: #505a7a; 
+            background-color: #eef1fa; 
             padding: 10px; 
-            border-radius: 5px; 
+            border-radius: 8px; 
             font-size: 11pt;
             font-family: 'Segoe UI', sans-serif;
         """)
@@ -963,15 +1008,13 @@ class VoiceCommanderApp(QMainWindow):
         # Call the transcription service method
         self.transcription_service.toggle_push_to_talk()
         
-        # Update the UI button to reflect current state
-        is_active = self.transcription_service.is_push_to_talk_mode
-        self.push_to_talk_button.setText("Stop Talking" if is_active else "Push to Talk")
+        # Update the UI state to reflect current state
+        self.update_ui_state()
         
-        # Update the style to show active/inactive state
-        if is_active:
-            self.push_to_talk_button.setStyleSheet("QPushButton { background-color: #ffaaaa; }")
-        else:
-            self.push_to_talk_button.setStyleSheet("")
+        # Log status change
+        is_active = self.transcription_service.is_push_to_talk_mode
+        status = "activated" if is_active else "deactivated"
+        self.log_status(f"Push-to-talk mode {status}")
     
     def toggle_mute(self):
         """Toggle LLM mute state"""
@@ -1182,7 +1225,10 @@ class VoiceCommanderApp(QMainWindow):
         
         # Create UI elements for each shortcut
         for row, (action_name, display_name) in enumerate(shortcut_actions):
-            shortcuts_layout.addWidget(QLabel(display_name), row, 0)
+            # Create label with transparent background
+            label = QLabel(display_name)
+            label.setStyleSheet("background: transparent; color: #505a7a;")
+            shortcuts_layout.addWidget(label, row, 0)
             
             # Get the current shortcut or "None" if not set
             current_shortcut = self.keyboard_service.get_shortcut(action_name)
