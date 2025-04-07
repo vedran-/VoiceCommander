@@ -80,47 +80,73 @@ class TranscriptionListItem(QWidget):
         
     def setup_ui(self):
         """Set up the UI components for this widget"""
-        # Main layout - changed to horizontal
+        # Main layout - horizontal
         main_layout = QHBoxLayout(self)
-        main_layout.setContentsMargins(3, 2, 3, 2)  # Reduced margins
-        main_layout.setSpacing(4)  # Reduced spacing
+        main_layout.setContentsMargins(8, 6, 8, 6)  # Slightly increased for better spacing
+        main_layout.setSpacing(8)  # Slightly increased for better spacing
         
-        # Timestamp label
+        # Timestamp label with better styling
         self.timestamp_label = QLabel()
-        self.timestamp_label.setStyleSheet("color: #666666; font-weight: bold;")
-        self.timestamp_label.setFixedWidth(80)  # Reduced width for lean look
+        self.timestamp_label.setStyleSheet("color: #555555; font-weight: 600; font-family: 'Segoe UI', sans-serif;")
+        self.timestamp_label.setFixedWidth(80)
         main_layout.addWidget(self.timestamp_label)
         
-        # Text content - set to expand horizontally
+        # Text content - expand horizontally with better styling
         self.text_label = QLabel()
         self.text_label.setWordWrap(True)
-        self.text_label.setStyleSheet("color: #c2a000;")  # Same color as user text in original UI
+        self.text_label.setStyleSheet("color: #333333; font-size: 11pt; font-family: 'Segoe UI', sans-serif;")
         main_layout.addWidget(self.text_label, 1)  # Add stretch factor of 1 to expand
         
         # Button container
         button_layout = QHBoxLayout()
-        button_layout.setSpacing(2)  # Reduced spacing between buttons
+        button_layout.setSpacing(8)  # Increased spacing between buttons
         
-        # Copy button (new)
+        # Button style
+        button_style = """
+            QPushButton {
+                background-color: #f0f0f0;
+                border: none;
+                border-radius: 4px;
+                padding: 4px;
+            }
+            QPushButton:hover {
+                background-color: #e0e0e0;
+            }
+            QPushButton:pressed {
+                background-color: #d0d0d0;
+            }
+            QPushButton:disabled {
+                background-color: #f8f8f8;
+                color: #b0b0b0;
+            }
+        """
+        
+        # Copy button with icon
         self.copy_button = QPushButton()
         self.copy_button.setIcon(QIcon.fromTheme("edit-copy", QIcon("assets/copy-icon.png")))
+        self.copy_button.setIconSize(QSize(16, 16))
         self.copy_button.setToolTip("Copy transcription to clipboard")
-        self.copy_button.setFixedSize(26, 26)  # Reduced size
+        self.copy_button.setFixedSize(28, 28)
+        self.copy_button.setStyleSheet(button_style)
         button_layout.addWidget(self.copy_button)
         
         # Play button with icon
         self.play_button = QPushButton()
         self.play_button.setIcon(QIcon.fromTheme("media-playback-start", QIcon("assets/play-icon.png")))
+        self.play_button.setIconSize(QSize(16, 16))
         self.play_button.setToolTip("Play audio")
-        self.play_button.setFixedSize(26, 26)  # Reduced size
+        self.play_button.setFixedSize(28, 28)
+        self.play_button.setStyleSheet(button_style)
         self.play_button.setEnabled(False)  # Disabled by default until audio_path is set
         button_layout.addWidget(self.play_button)
         
         # Transcribe Again button with icon
         self.transcribe_button = QPushButton()
         self.transcribe_button.setIcon(QIcon.fromTheme("view-refresh", QIcon("assets/refresh-icon.png")))
+        self.transcribe_button.setIconSize(QSize(16, 16))
         self.transcribe_button.setToolTip("Transcribe again")
-        self.transcribe_button.setFixedSize(26, 26)  # Reduced size
+        self.transcribe_button.setFixedSize(28, 28)
+        self.transcribe_button.setStyleSheet(button_style)
         self.transcribe_button.setEnabled(False)  # Disabled by default until audio_path is set
         button_layout.addWidget(self.transcribe_button)
         
@@ -153,9 +179,41 @@ class TranscriptionListItem(QWidget):
         if is_playing:
             self.play_button.setIcon(QIcon.fromTheme("media-playback-stop", QIcon("assets/stop-icon.png")))
             self.play_button.setToolTip("Stop playback")
+            self.play_button.setStyleSheet("""
+                QPushButton {
+                    background-color: #ffead7;
+                    border: none;
+                    border-radius: 4px;
+                    padding: 4px;
+                }
+                QPushButton:hover {
+                    background-color: #ffdcbf;
+                }
+                QPushButton:pressed {
+                    background-color: #ffcfa7;
+                }
+            """)
         else:
             self.play_button.setIcon(QIcon.fromTheme("media-playback-start", QIcon("assets/play-icon.png")))
             self.play_button.setToolTip("Play audio")
+            self.play_button.setStyleSheet("""
+                QPushButton {
+                    background-color: #f0f0f0;
+                    border: none;
+                    border-radius: 4px;
+                    padding: 4px;
+                }
+                QPushButton:hover {
+                    background-color: #e0e0e0;
+                }
+                QPushButton:pressed {
+                    background-color: #d0d0d0;
+                }
+                QPushButton:disabled {
+                    background-color: #f8f8f8;
+                    color: #b0b0b0;
+                }
+            """)
         
     def stopPlayback(self):
         """Stop any active playback"""
@@ -178,6 +236,104 @@ class VoiceCommanderApp(QMainWindow):
         self.setWindowTitle("Voice Commander")
         self.setGeometry(100, 100, 1200, 800)
         self.setWindowIcon(QIcon("assets/voice-commander.png"))
+        
+        # Apply application-wide style
+        self.setStyleSheet("""
+            QMainWindow {
+                background-color: #f5f7fa;
+            }
+            QWidget {
+                font-family: 'Segoe UI', sans-serif;
+            }
+            QGroupBox {
+                font-weight: bold;
+                border: 1px solid #d0d0d0;
+                border-radius: 6px;
+                margin-top: 12px;
+                background-color: #ffffff;
+            }
+            QGroupBox::title {
+                subcontrol-origin: margin;
+                left: 10px;
+                padding: 0 5px;
+                color: #444444;
+            }
+            QLabel {
+                color: #333333;
+            }
+            QComboBox {
+                border: 1px solid #c0c0c0;
+                border-radius: 4px;
+                padding: 4px;
+                background-color: #ffffff;
+            }
+            QComboBox::drop-down {
+                border: none;
+                width: 24px;
+            }
+            QScrollBar:vertical {
+                border: none;
+                background: #f0f0f0;
+                width: 8px;
+                margin: 0px;
+            }
+            QScrollBar::handle:vertical {
+                background: #c0c0c0;
+                border-radius: 4px;
+                min-height: 20px;
+            }
+            QScrollBar::handle:vertical:hover {
+                background: #a0a0a0;
+            }
+            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+                border: none;
+                background: none;
+                height: 0px;
+            }
+            QScrollBar:horizontal {
+                border: none;
+                background: #f0f0f0;
+                height: 8px;
+                margin: 0px;
+            }
+            QScrollBar::handle:horizontal {
+                background: #c0c0c0;
+                border-radius: 4px;
+                min-width: 20px;
+            }
+            QScrollBar::handle:horizontal:hover {
+                background: #a0a0a0;
+            }
+            QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {
+                border: none;
+                background: none;
+                width: 0px;
+            }
+            QSplitter::handle {
+                background-color: #d0d0d0;
+                height: 1px;
+            }
+            QListWidget {
+                border: 1px solid #d0d0d0;
+                border-radius: 6px;
+                background-color: #ffffff;
+                alternate-background-color: #f9f9f9;
+            }
+            QListWidget::item {
+                border-bottom: 1px solid #f0f0f0;
+                padding: 2px;
+            }
+            QListWidget::item:selected {
+                background-color: #e7f0fd;
+                color: #000000;
+            }
+            QTextEdit {
+                border: 1px solid #d0d0d0;
+                border-radius: 6px;
+                background-color: #ffffff;
+                selection-background-color: #c2dbff;
+            }
+        """)
         
         # Initialize attributes
         self.audio_service = None
@@ -317,36 +473,50 @@ class VoiceCommanderApp(QMainWindow):
         
         # Main layout
         main_layout = QVBoxLayout(central_widget)
+        main_layout.setContentsMargins(12, 12, 12, 12)  # Increased margins for better spacing
+        main_layout.setSpacing(8)  # Adjusted spacing
         
         # Create a splitter for resizable sections
         splitter = QSplitter(Qt.Orientation.Vertical)
+        splitter.setHandleWidth(2)  # Thinner splitter handle
         main_layout.addWidget(splitter)
         
         # Chat area
         chat_container = QWidget()
         chat_layout = QVBoxLayout(chat_container)
+        chat_layout.setContentsMargins(0, 0, 0, 0)  # Remove margins
         
         # Conversation header with Reset button
         header_layout = QHBoxLayout()
         chat_label = QLabel("Conversation")
-        chat_label.setStyleSheet("font-weight: bold; font-size: 14px;")
+        chat_label.setStyleSheet("font-weight: bold; font-size: 14px; color: #444444;")
         header_layout.addWidget(chat_label)
         
-        # Define button style with width but minimal height constraints
+        # Define button style with modern look
         button_style = """
             QPushButton {
-                min-width: 120px;
-                padding: 3px;
-                border-radius: 3px;
-                border: 1px solid #aaaaaa;
+                min-width: 110px;
+                padding: 6px;
+                border-radius: 5px;
+                border: none;
+                background-color: #f0f0f0;
+                color: #444444;
+                font-weight: 600;
+            }
+            QPushButton:hover {
+                background-color: #e0e0e0;
+            }
+            QPushButton:pressed {
+                background-color: #d0d0d0;
             }
         """
         
         # Push Reset Chat button to the right side
         header_layout.addStretch(1)
         
-        # Add Reset Chat button to the conversation header
+        # Add New Chat button to the conversation header
         self.reset_button = QPushButton("New Chat")
+        self.reset_button.setIcon(QIcon.fromTheme("document-new", QIcon("assets/new-icon.png")))
         self.reset_button.clicked.connect(self.new_chat)
         self.reset_button.setStyleSheet(button_style)
         header_layout.addWidget(self.reset_button)
@@ -356,7 +526,19 @@ class VoiceCommanderApp(QMainWindow):
         
         # Replace QTextEdit with QListWidget for transcriptions
         self.chat_display = QListWidget()
-        self.chat_display.setStyleSheet("background-color: #f0f0f0;")
+        self.chat_display.setAlternatingRowColors(True)  # Add alternating row colors
+        self.chat_display.setStyleSheet("""
+            QListWidget {
+                border: 1px solid #d0d0d0;
+                border-radius: 6px;
+                background-color: #ffffff;
+                alternate-background-color: #f9f9f9;
+            }
+            QListWidget::item {
+                border-bottom: 1px solid #f0f0f0;
+                padding: 2px;
+            }
+        """)
         self.chat_display.setFont(QFont("Segoe UI", 11))
         self.chat_display.setSpacing(1)  # Reduced spacing between items
         self.chat_display.setWordWrap(True)
@@ -366,43 +548,109 @@ class VoiceCommanderApp(QMainWindow):
         
         # Controls area
         controls_container = QWidget()
+        controls_container.setStyleSheet("background-color: #f5f7fa;")
         controls_layout = QVBoxLayout(controls_container)
-        controls_layout.setSpacing(5)  # Reduce spacing between group boxes
-        controls_layout.setContentsMargins(5, 5, 5, 5)  # Reduce container margins
+        controls_layout.setSpacing(10)  # Increased spacing between group boxes
+        controls_layout.setContentsMargins(0, 0, 0, 0)  # Remove container margins
         
         # Group the controls in a grid layout
         controls_group = QGroupBox("Controls")
-        controls_group.setStyleSheet("QGroupBox { padding-top: 15px; margin-top: 5px; }")
+        controls_group.setStyleSheet("""
+            QGroupBox {
+                font-weight: bold;
+                border: 1px solid #d0d0d0;
+                border-radius: 6px;
+                margin-top: 12px;
+                background-color: #ffffff;
+            }
+            QGroupBox::title {
+                subcontrol-origin: margin;
+                left: 10px;
+                padding: 0 5px;
+                color: #444444;
+            }
+        """)
         controls_grid = QGridLayout()
-        controls_grid.setVerticalSpacing(5)
-        controls_grid.setContentsMargins(10, 5, 10, 5)  # Reduce padding inside group box
+        controls_grid.setVerticalSpacing(15)
+        controls_grid.setHorizontalSpacing(15)
+        controls_grid.setContentsMargins(15, 15, 15, 15)  # Increased padding inside group box
+        
+        # Define active button style (blue)
+        active_button_style = """
+            QPushButton {
+                min-width: 110px;
+                padding: 6px;
+                border-radius: 5px;
+                border: none;
+                background-color: #4da6ff;
+                color: white;
+                font-weight: 600;
+            }
+            QPushButton:hover {
+                background-color: #3d96ef;
+            }
+            QPushButton:pressed {
+                background-color: #2d86df;
+            }
+            QPushButton:disabled {
+                background-color: #cccccc;
+                color: #666666;
+            }
+        """
+        
+        # Inactive button style
+        inactive_button_style = """
+            QPushButton {
+                min-width: 110px;
+                padding: 6px;
+                border-radius: 5px;
+                border: none;
+                background-color: #f0f0f0;
+                color: #444444;
+                font-weight: 600;
+            }
+            QPushButton:hover {
+                background-color: #e0e0e0;
+            }
+            QPushButton:pressed {
+                background-color: #d0d0d0;
+            }
+            QPushButton:disabled {
+                background-color: #f8f8f8;
+                color: #aaaaaa;
+            }
+        """
         
         # Row 1: Recording, AI and Paste buttons
         button_layout = QHBoxLayout()
-        button_layout.setSpacing(6)  # Reduce horizontal spacing between buttons
+        button_layout.setSpacing(10)  # Increase spacing between buttons
         
         # Recording control button
         self.record_button = QPushButton("Start Transcription")
+        self.record_button.setIcon(QIcon.fromTheme("media-record", QIcon("assets/record-icon.png")))
         self.record_button.clicked.connect(self.toggle_recording)
-        self.record_button.setStyleSheet(button_style)
+        self.record_button.setStyleSheet(inactive_button_style)  # Will be updated in update_ui_state()
         button_layout.addWidget(self.record_button)
         
         # Push to Talk button
         self.push_to_talk_button = QPushButton("Push to Talk")
+        self.push_to_talk_button.setIcon(QIcon.fromTheme("audio-input-microphone", QIcon("assets/mic-icon.png")))
         self.push_to_talk_button.clicked.connect(self.toggle_push_to_talk)
-        self.push_to_talk_button.setStyleSheet(button_style)
+        self.push_to_talk_button.setStyleSheet(inactive_button_style)  # Will be updated in update_ui_state()
         button_layout.addWidget(self.push_to_talk_button)
         
         # LLM processing toggle button
         self.mute_button = QPushButton("AI Processing: On")
+        self.mute_button.setIcon(QIcon.fromTheme("system-run", QIcon("assets/ai-icon.png")))
         self.mute_button.clicked.connect(self.toggle_mute)
-        self.mute_button.setStyleSheet(button_style)
+        self.mute_button.setStyleSheet(inactive_button_style)  # Will be updated in update_ui_state()
         button_layout.addWidget(self.mute_button)
         
         # Automatic paste toggle button
         self.paste_button = QPushButton("Auto-Paste: On")
+        self.paste_button.setIcon(QIcon.fromTheme("edit-paste", QIcon("assets/paste-icon.png")))
         self.paste_button.clicked.connect(self.toggle_paste)
-        self.paste_button.setStyleSheet(button_style)
+        self.paste_button.setStyleSheet(inactive_button_style)  # Will be updated in update_ui_state()
         button_layout.addWidget(self.paste_button)
         
         # Create a widget to hold the button layout
@@ -506,51 +754,73 @@ class VoiceCommanderApp(QMainWindow):
     
     def update_ui_state(self):
         """Update UI elements based on current application state"""
-        # Base button style without height constraints but with width
-        base_style = """
+        # Define active button style (blue)
+        active_button_style = """
             QPushButton {
-                min-width: 120px;
-                padding: 3px;
-                border-radius: 3px;
-                border: 1px solid #aaaaaa;
-            }
-        """
-        
-        # Active button style (green)
-        active_style = base_style + """
-            QPushButton {
-                background-color: #66cc66;
-                color: #000000;
+                min-width: 110px;
+                padding: 6px;
+                border-radius: 5px;
+                border: none;
+                background-color: #4da6ff;
+                color: white;
+                font-weight: 600;
             }
             QPushButton:hover {
-                background-color: #77dd77;
+                background-color: #3d96ef;
+            }
+            QPushButton:pressed {
+                background-color: #2d86df;
+            }
+            QPushButton:disabled {
+                background-color: #cccccc;
+                color: #666666;
             }
         """
         
-        # Inactive button style (default system style)
-        inactive_style = base_style
+        # Inactive button style
+        inactive_button_style = """
+            QPushButton {
+                min-width: 110px;
+                padding: 6px;
+                border-radius: 5px;
+                border: none;
+                background-color: #f0f0f0;
+                color: #444444;
+                font-weight: 600;
+            }
+            QPushButton:hover {
+                background-color: #e0e0e0;
+            }
+            QPushButton:pressed {
+                background-color: #d0d0d0;
+            }
+            QPushButton:disabled {
+                background-color: #f8f8f8;
+                color: #aaaaaa;
+            }
+        """
         
-        # Update recording button - only show green when recording
+        # Update recording button - only show active when recording
         is_recording = self.transcription_service.is_transcribing
         is_push_to_talk = self.transcription_service.is_push_to_talk_mode
         self.record_button.setText("Recording" if is_recording else "Start Transcription")
-        self.record_button.setStyleSheet(active_style if is_recording else inactive_style)
+        self.record_button.setStyleSheet(active_button_style if is_recording else inactive_button_style)
         # Disable the record button when push-to-talk is active
         self.record_button.setEnabled(not is_push_to_talk)
         
         # Update push to talk button
         self.push_to_talk_button.setText("Stop Talking" if is_push_to_talk else "Push to Talk")
-        self.push_to_talk_button.setStyleSheet(active_style if is_push_to_talk else inactive_style)
+        self.push_to_talk_button.setStyleSheet(active_button_style if is_push_to_talk else inactive_button_style)
         
         # Update mute button
         is_muted = self.groq_service.mute_llm
         self.mute_button.setText(f"AI Processing: {'Off' if is_muted else 'On'}")
-        self.mute_button.setStyleSheet(active_style if not is_muted else inactive_style)
+        self.mute_button.setStyleSheet(inactive_button_style if is_muted else active_button_style)
         
         # Update paste button
         is_paste_on = self.groq_service.automatic_paste
         self.paste_button.setText(f"Auto-Paste: {'On' if is_paste_on else 'Off'}")
-        self.paste_button.setStyleSheet(active_style if is_paste_on else inactive_style)
+        self.paste_button.setStyleSheet(active_button_style if is_paste_on else inactive_button_style)
     
     def start_audio_processing(self):
         """Start the audio processing thread"""
@@ -628,10 +898,23 @@ class VoiceCommanderApp(QMainWindow):
     
     def add_ai_response(self, text):
         """Add an AI response message to the chat display"""
-        # Create a QLabel for the AI response
+        # Create a container widget for the AI response
+        container = QWidget()
+        container_layout = QVBoxLayout(container)
+        container_layout.setContentsMargins(8, 8, 8, 8)
+        
+        # Create a QLabel for the AI response with better styling
         label = QLabel(text)
         label.setWordWrap(True)
-        label.setStyleSheet("color: #0078d7; padding: 5px;")  # Same color as AI text in original UI
+        label.setStyleSheet("""
+            color: #0066cc; 
+            background-color: #e7f0fd; 
+            padding: 10px; 
+            border-radius: 5px; 
+            font-size: 11pt;
+            font-family: 'Segoe UI', sans-serif;
+        """)
+        container_layout.addWidget(label)
         
         # Create a list item and set its size
         list_item = QListWidgetItem(self.chat_display)
@@ -642,7 +925,7 @@ class VoiceCommanderApp(QMainWindow):
         
         # Add the widget to the list item
         self.chat_display.addItem(list_item)
-        self.chat_display.setItemWidget(list_item, label)
+        self.chat_display.setItemWidget(list_item, container)
         
         # Scroll to the new item
         self.chat_display.scrollToItem(list_item)
