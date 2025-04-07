@@ -7,6 +7,7 @@ import random
 import importlib
 import platform
 import keyboard  # Import the keyboard library we're using
+import pyperclip  # For clipboard operations
 from datetime import datetime
 from PyQt6.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QPushButton
 from PyQt6.QtWidgets import QTextEdit, QLabel, QComboBox, QSplitter, QGroupBox, QGridLayout, QScrollArea
@@ -81,13 +82,13 @@ class TranscriptionListItem(QWidget):
         """Set up the UI components for this widget"""
         # Main layout - changed to horizontal
         main_layout = QHBoxLayout(self)
-        main_layout.setContentsMargins(5, 5, 5, 5)
-        main_layout.setSpacing(6)
+        main_layout.setContentsMargins(3, 2, 3, 2)  # Reduced margins
+        main_layout.setSpacing(4)  # Reduced spacing
         
         # Timestamp label
         self.timestamp_label = QLabel()
         self.timestamp_label.setStyleSheet("color: #666666; font-weight: bold;")
-        self.timestamp_label.setFixedWidth(90)  # Fixed width for consistent alignment
+        self.timestamp_label.setFixedWidth(80)  # Reduced width for lean look
         main_layout.addWidget(self.timestamp_label)
         
         # Text content - set to expand horizontally
@@ -98,17 +99,28 @@ class TranscriptionListItem(QWidget):
         
         # Button container
         button_layout = QHBoxLayout()
-        button_layout.setSpacing(6)
+        button_layout.setSpacing(2)  # Reduced spacing between buttons
         
-        # Play button
-        self.play_button = QPushButton("Play")
-        self.play_button.setFixedWidth(80)
+        # Copy button (new)
+        self.copy_button = QPushButton()
+        self.copy_button.setIcon(QIcon.fromTheme("edit-copy", QIcon("assets/copy-icon.png")))
+        self.copy_button.setToolTip("Copy transcription to clipboard")
+        self.copy_button.setFixedSize(26, 26)  # Reduced size
+        button_layout.addWidget(self.copy_button)
+        
+        # Play button with icon
+        self.play_button = QPushButton()
+        self.play_button.setIcon(QIcon.fromTheme("media-playback-start", QIcon("assets/play-icon.png")))
+        self.play_button.setToolTip("Play audio")
+        self.play_button.setFixedSize(26, 26)  # Reduced size
         self.play_button.setEnabled(False)  # Disabled by default until audio_path is set
         button_layout.addWidget(self.play_button)
         
-        # Transcribe Again button
-        self.transcribe_button = QPushButton("Transcribe Again")
-        self.transcribe_button.setFixedWidth(120)
+        # Transcribe Again button with icon
+        self.transcribe_button = QPushButton()
+        self.transcribe_button.setIcon(QIcon.fromTheme("view-refresh", QIcon("assets/refresh-icon.png")))
+        self.transcribe_button.setToolTip("Transcribe again")
+        self.transcribe_button.setFixedSize(26, 26)  # Reduced size
         self.transcribe_button.setEnabled(False)  # Disabled by default until audio_path is set
         button_layout.addWidget(self.transcribe_button)
         
@@ -138,7 +150,12 @@ class TranscriptionListItem(QWidget):
     def setPlaying(self, is_playing):
         """Update the play button state"""
         self.is_playing = is_playing
-        self.play_button.setText("Stop" if is_playing else "Play")
+        if is_playing:
+            self.play_button.setIcon(QIcon.fromTheme("media-playback-stop", QIcon("assets/stop-icon.png")))
+            self.play_button.setToolTip("Stop playback")
+        else:
+            self.play_button.setIcon(QIcon.fromTheme("media-playback-start", QIcon("assets/play-icon.png")))
+            self.play_button.setToolTip("Play audio")
         
     def stopPlayback(self):
         """Stop any active playback"""
@@ -341,7 +358,7 @@ class VoiceCommanderApp(QMainWindow):
         self.chat_display = QListWidget()
         self.chat_display.setStyleSheet("background-color: #f0f0f0;")
         self.chat_display.setFont(QFont("Segoe UI", 11))
-        self.chat_display.setSpacing(2)  # Add spacing between items
+        self.chat_display.setSpacing(1)  # Reduced spacing between items
         self.chat_display.setWordWrap(True)
         chat_layout.addWidget(self.chat_display)
         
@@ -582,19 +599,24 @@ class VoiceCommanderApp(QMainWindow):
         item_widget.setData(timestamp, text, audio_path)
         
         # Connect button signals
+        # Connect copy button signal
+        item_widget.copy_button.clicked.connect(
+            lambda: self.copy_to_clipboard(text)
+        )
+        
         if audio_path:
             # Important: Use lambda instead of partial to ensure we get the current state
             item_widget.play_button.clicked.connect(
                 lambda: self.play_audio(audio_path, item_widget)
             )
             item_widget.transcribe_button.clicked.connect(
-                partial(self.retranscribe_audio, audio_path, item_widget)
+                lambda: self.retranscribe_audio(audio_path, item_widget)
             )
         
         # Create a list item and set its size
         list_item = QListWidgetItem(self.chat_display)
-        # Adjust for multi-line text - calculate approximate height
-        item_height = 40  # Fixed height for single-line layout
+        # Use a fixed, smaller height for a leaner look
+        item_height = 32  # Reduced from 40 to 32 for a leaner look
         list_item.setSizeHint(QSize(self.chat_display.width(), item_height))
         
         # Add the widget to the list item
@@ -1032,13 +1054,14 @@ class VoiceCommanderApp(QMainWindow):
 
     def play_audio(self, audio_path, item_widget):
         """Play or stop the audio file at the given path"""
-        # Stop any currently playing sounds in other widgets
-        self.stop_all_playback()
-        
-        # If we have an item widget and it's already playing, stop it
-        if item_widget and item_widget.is_playing:
+        # If the item is already playing, stop it and exit
+        if item_widget.is_playing:
             item_widget.stopPlayback()
+            self.log_status("Playback stopped")
             return
+            
+        # At this point we're starting a new playback, so first stop any other playback
+        self.stop_all_playback()
             
         if not audio_path or not os.path.exists(audio_path):
             self.log_status(f"Error: Audio file not found at {audio_path}")
@@ -1048,24 +1071,23 @@ class VoiceCommanderApp(QMainWindow):
             # Use pygame mixer to play the audio file
             sound = pygame.mixer.Sound(audio_path)
             
-            # Create callback for when sound finishes
-            channel = sound.play()
+            # Play the sound
+            sound.play()
             
-            if item_widget:
-                # Store the sound in the widget
-                item_widget.sound = sound
-                item_widget.setPlaying(True)
+            # Store the sound in the widget
+            item_widget.sound = sound
+            item_widget.setPlaying(True)
                 
-                # Schedule a check to see when the sound finishes playing
-                def check_if_still_playing():
-                    if not pygame.mixer.get_busy() and item_widget.is_playing:
-                        item_widget.setPlaying(False)
-                        item_widget.sound = None
-                
-                # Check every 100ms if the sound is still playing
-                timer = QTimer(self)
-                timer.timeout.connect(check_if_still_playing)
-                timer.start(100)
+            # Schedule a check to see when the sound finishes playing
+            def check_if_still_playing():
+                if not pygame.mixer.get_busy() and item_widget.is_playing:
+                    item_widget.setPlaying(False)
+                    item_widget.sound = None
+            
+            # Check every 100ms if the sound is still playing
+            timer = QTimer(self)
+            timer.timeout.connect(check_if_still_playing)
+            timer.start(100)
                 
             self.log_status(f"Playing audio: {os.path.basename(audio_path)}")
         except Exception as e:
@@ -1214,6 +1236,14 @@ class VoiceCommanderApp(QMainWindow):
         else:
             # AI response
             self.add_ai_response(text)
+
+    def copy_to_clipboard(self, text):
+        """Copy the given text to clipboard"""
+        try:
+            pyperclip.copy(text)
+            self.log_status(f"Copied to clipboard: {text[:30]}..." if len(text) > 30 else f"Copied to clipboard: {text}")
+        except Exception as e:
+            self.log_status(f"Error copying to clipboard: {e}")
 
 def main():
     """Main entry point for the Qt application"""
