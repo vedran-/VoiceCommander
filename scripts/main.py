@@ -73,44 +73,46 @@ class TranscriptionListItem(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.audio_path = None
+        self.is_playing = False
+        self.sound = None
         self.setup_ui()
         
     def setup_ui(self):
         """Set up the UI components for this widget"""
-        # Main layout
-        main_layout = QVBoxLayout(self)
+        # Main layout - changed to horizontal
+        main_layout = QHBoxLayout(self)
         main_layout.setContentsMargins(5, 5, 5, 5)
-        main_layout.setSpacing(3)
-        
-        # Top row with timestamp and buttons
-        top_layout = QHBoxLayout()
+        main_layout.setSpacing(6)
         
         # Timestamp label
         self.timestamp_label = QLabel()
         self.timestamp_label.setStyleSheet("color: #666666; font-weight: bold;")
-        top_layout.addWidget(self.timestamp_label)
+        self.timestamp_label.setFixedWidth(90)  # Fixed width for consistent alignment
+        main_layout.addWidget(self.timestamp_label)
         
-        top_layout.addStretch(1)  # Push buttons to the right
+        # Text content - set to expand horizontally
+        self.text_label = QLabel()
+        self.text_label.setWordWrap(True)
+        self.text_label.setStyleSheet("color: #c2a000;")  # Same color as user text in original UI
+        main_layout.addWidget(self.text_label, 1)  # Add stretch factor of 1 to expand
+        
+        # Button container
+        button_layout = QHBoxLayout()
+        button_layout.setSpacing(6)
         
         # Play button
         self.play_button = QPushButton("Play")
         self.play_button.setFixedWidth(80)
         self.play_button.setEnabled(False)  # Disabled by default until audio_path is set
-        top_layout.addWidget(self.play_button)
+        button_layout.addWidget(self.play_button)
         
         # Transcribe Again button
         self.transcribe_button = QPushButton("Transcribe Again")
         self.transcribe_button.setFixedWidth(120)
         self.transcribe_button.setEnabled(False)  # Disabled by default until audio_path is set
-        top_layout.addWidget(self.transcribe_button)
+        button_layout.addWidget(self.transcribe_button)
         
-        main_layout.addLayout(top_layout)
-        
-        # Text content
-        self.text_label = QLabel()
-        self.text_label.setWordWrap(True)
-        self.text_label.setStyleSheet("color: #c2a000;")  # Same color as user text in original UI
-        main_layout.addWidget(self.text_label)
+        main_layout.addLayout(button_layout)
         
         # Set a minimum width for better layout
         self.setMinimumWidth(400)
@@ -132,6 +134,18 @@ class TranscriptionListItem(QWidget):
     def updateText(self, new_text):
         """Update the displayed text"""
         self.text_label.setText(new_text)
+        
+    def setPlaying(self, is_playing):
+        """Update the play button state"""
+        self.is_playing = is_playing
+        self.play_button.setText("Stop" if is_playing else "Play")
+        
+    def stopPlayback(self):
+        """Stop any active playback"""
+        if self.sound and self.is_playing:
+            self.sound.stop()
+            self.setPlaying(False)
+            self.sound = None
 
 class VoiceCommanderApp(QMainWindow):
     """
@@ -174,6 +188,9 @@ class VoiceCommanderApp(QMainWindow):
         
         # Update UI state
         self.update_ui_state()
+        
+        # Load saved chat history after UI is set up
+        self.load_chat_history()
         
         # Start audio processing
         self.start_audio_processing()
@@ -312,8 +329,8 @@ class VoiceCommanderApp(QMainWindow):
         header_layout.addStretch(1)
         
         # Add Reset Chat button to the conversation header
-        self.reset_button = QPushButton("Reset Chat")
-        self.reset_button.clicked.connect(self.reset_chat)
+        self.reset_button = QPushButton("New Chat")
+        self.reset_button.clicked.connect(self.new_chat)
         self.reset_button.setStyleSheet(button_style)
         header_layout.addWidget(self.reset_button)
         
@@ -529,7 +546,6 @@ class VoiceCommanderApp(QMainWindow):
         
         self.log_status("Audio processing initialized. Click 'Start Transcription' to begin recording.")
     
-    # Signal handlers
     @pyqtSlot(dict)  # Updated to receive dict instead of str
     def on_transcription_result(self, result_data):
         """Handle new transcription result"""
@@ -540,6 +556,9 @@ class VoiceCommanderApp(QMainWindow):
         
         # Add as a transcription item
         self.add_transcription_item(timestamp, text, audio_path)
+        
+        # Save chat history after adding a new item
+        self.save_chat_history()
     
     @pyqtSlot(str)
     def on_llm_response(self, text):
@@ -564,8 +583,9 @@ class VoiceCommanderApp(QMainWindow):
         
         # Connect button signals
         if audio_path:
+            # Important: Use lambda instead of partial to ensure we get the current state
             item_widget.play_button.clicked.connect(
-                partial(self.play_audio, audio_path)
+                lambda: self.play_audio(audio_path, item_widget)
             )
             item_widget.transcribe_button.clicked.connect(
                 partial(self.retranscribe_audio, audio_path, item_widget)
@@ -574,8 +594,7 @@ class VoiceCommanderApp(QMainWindow):
         # Create a list item and set its size
         list_item = QListWidgetItem(self.chat_display)
         # Adjust for multi-line text - calculate approximate height
-        text_lines = max(1, (len(text) // 40) + 1)  # Rough estimate of line count
-        item_height = 60 + (text_lines * 20)  # Base height + extra per line
+        item_height = 40  # Fixed height for single-line layout
         list_item.setSizeHint(QSize(self.chat_display.width(), item_height))
         
         # Add the widget to the list item
@@ -605,29 +624,6 @@ class VoiceCommanderApp(QMainWindow):
         
         # Scroll to the new item
         self.chat_display.scrollToItem(list_item)
-    
-    # Add back the legacy method for compatibility
-    def add_chat_message(self, text, is_user=True):
-        """Legacy method maintained for compatibility"""
-        if is_user and isinstance(text, dict):
-            # Handle new format
-            timestamp = text.get('timestamp', '')
-            message = text.get('text', '')
-            audio_path = text.get('audio_path')
-            self.add_transcription_item(timestamp, message, audio_path)
-        elif is_user and isinstance(text, str):
-            # Try to extract timestamp and message from string format "HH:MM:SS > message"
-            parts = text.split('>', 1)
-            if len(parts) == 2:
-                timestamp = parts[0].strip()
-                message = parts[1].strip()
-                self.add_transcription_item(timestamp, message, None)
-            else:
-                # Fallback
-                self.add_transcription_item(datetime.now().strftime("%H:%M:%S"), text, None)
-        else:
-            # AI response
-            self.add_ai_response(text)
     
     def log_status(self, message):
         """Add a message to the status log"""
@@ -708,12 +704,12 @@ class VoiceCommanderApp(QMainWindow):
         
         self.update_ui_state()
     
-    def reset_chat(self):
-        """Reset the chat history"""
+    def new_chat(self):
+        """Clear the chat history and start a new chat"""
         try:
             # Reset the chat history in the service
             self.groq_service.InitializeChat()
-            self.log_status("Chat history reset")
+            self.log_status("New chat started")
             
             # Emit signal to clear chat display in the UI thread
             self.clear_chat_signal.emit()
@@ -721,12 +717,20 @@ class VoiceCommanderApp(QMainWindow):
             # Only attempt TTS if not muted
             if not self.groq_service.mute_llm:
                 try:
-                    self.groq_service.safe_tts_say("Chat history reset")
+                    self.groq_service.safe_tts_say("New chat started")
                 except Exception as e:
                     self.log_status(f"TTS error: {e}")
+                    
+            # Save the empty chat history
+            self.save_chat_history()
         except Exception as e:
-            self.log_status(f"Error resetting chat: {e}")
-            logger.error(f"Error in reset_chat: {e}", exc_info=True)
+            self.log_status(f"Error starting new chat: {e}")
+            logger.error(f"Error in new_chat: {e}", exc_info=True)
+    
+    # Maintain backward compatibility
+    def reset_chat(self):
+        """Alias for new_chat for backward compatibility"""
+        self.new_chat()
     
     def change_language(self, index):
         """Change the language based on combo box selection"""
@@ -815,6 +819,9 @@ class VoiceCommanderApp(QMainWindow):
     def on_close(self, event):
         """Handle window close event"""
         try:
+            # Save the chat history before closing
+            self.save_chat_history()
+            
             # Save window position and size
             self.settings_manager.set('window_position', [self.x(), self.y()])
             self.settings_manager.set('window_size', [self.width(), self.height()])
@@ -1023,8 +1030,16 @@ class VoiceCommanderApp(QMainWindow):
         # No need to do anything here as the action is directly connected to the method
         # The methods will be called directly by the keyboard service
 
-    def play_audio(self, audio_path):
-        """Play the audio file at the given path"""
+    def play_audio(self, audio_path, item_widget):
+        """Play or stop the audio file at the given path"""
+        # Stop any currently playing sounds in other widgets
+        self.stop_all_playback()
+        
+        # If we have an item widget and it's already playing, stop it
+        if item_widget and item_widget.is_playing:
+            item_widget.stopPlayback()
+            return
+            
         if not audio_path or not os.path.exists(audio_path):
             self.log_status(f"Error: Audio file not found at {audio_path}")
             return
@@ -1032,10 +1047,42 @@ class VoiceCommanderApp(QMainWindow):
         try:
             # Use pygame mixer to play the audio file
             sound = pygame.mixer.Sound(audio_path)
-            sound.play()
+            
+            # Create callback for when sound finishes
+            channel = sound.play()
+            
+            if item_widget:
+                # Store the sound in the widget
+                item_widget.sound = sound
+                item_widget.setPlaying(True)
+                
+                # Schedule a check to see when the sound finishes playing
+                def check_if_still_playing():
+                    if not pygame.mixer.get_busy() and item_widget.is_playing:
+                        item_widget.setPlaying(False)
+                        item_widget.sound = None
+                
+                # Check every 100ms if the sound is still playing
+                timer = QTimer(self)
+                timer.timeout.connect(check_if_still_playing)
+                timer.start(100)
+                
             self.log_status(f"Playing audio: {os.path.basename(audio_path)}")
         except Exception as e:
             self.log_status(f"Error playing audio: {e}")
+    
+    def stop_all_playback(self):
+        """Stop all currently playing audio"""
+        # Stop all pygame channels
+        pygame.mixer.stop()
+        
+        # Reset all item widgets that might be in playing state
+        for i in range(self.chat_display.count()):
+            item = self.chat_display.item(i)
+            widget = self.chat_display.itemWidget(item)
+            if hasattr(widget, 'is_playing') and widget.is_playing:
+                widget.setPlaying(False)
+                widget.sound = None
     
     def retranscribe_audio(self, audio_path, item_widget):
         """Re-transcribe the audio file at the given path"""
@@ -1071,6 +1118,102 @@ class VoiceCommanderApp(QMainWindow):
                 self.log_status("Transcription failed")
         except Exception as e:
             self.log_status(f"Error re-transcribing audio: {e}")
+
+    def save_chat_history(self):
+        """Save the current chat history to disk"""
+        try:
+            chat_history = []
+            
+            # Extract data from each item in the chat display
+            for i in range(self.chat_display.count()):
+                item = self.chat_display.item(i)
+                widget = self.chat_display.itemWidget(item)
+                
+                # Only save transcription items, not AI responses
+                if isinstance(widget, TranscriptionListItem):
+                    chat_history.append({
+                        'timestamp': widget.timestamp_label.text().strip(' >'),
+                        'text': widget.text_label.text(),
+                        'audio_path': widget.audio_path
+                    })
+            
+            # Save to a file in the settings directory
+            settings_dir = os.path.dirname(self.settings_manager.settings_path)
+            chat_history_path = os.path.join(
+                settings_dir, 
+                'voice_commander_chat_history.json'
+            )
+            
+            with open(chat_history_path, 'w', encoding='utf-8') as f:
+                json.dump(chat_history, f, ensure_ascii=False, indent=2)
+                
+            logger.info(f"Chat history saved with {len(chat_history)} items")
+            
+        except Exception as e:
+            logger.error(f"Error saving chat history: {e}", exc_info=True)
+    
+    def load_chat_history(self):
+        """Load chat history from disk"""
+        try:
+            # Path to the chat history file
+            settings_dir = os.path.dirname(self.settings_manager.settings_path)
+            chat_history_path = os.path.join(
+                settings_dir, 
+                'voice_commander_chat_history.json'
+            )
+            
+            # If the file doesn't exist, nothing to load
+            if not os.path.exists(chat_history_path):
+                logger.info("No chat history file found")
+                return
+            
+            # Load the chat history data
+            with open(chat_history_path, 'r', encoding='utf-8') as f:
+                chat_history = json.load(f)
+            
+            # Clear current chat display
+            self.chat_display.clear()
+            
+            # Add each item to the display
+            for item in chat_history:
+                timestamp = item.get('timestamp', '')
+                text = item.get('text', '')
+                audio_path = item.get('audio_path')
+                
+                # Verify audio path exists
+                if audio_path and not os.path.exists(audio_path):
+                    logger.warning(f"Audio file not found: {audio_path}")
+                    audio_path = None
+                
+                self.add_transcription_item(timestamp, text, audio_path)
+            
+            logger.info(f"Loaded chat history with {len(chat_history)} items")
+            
+        except Exception as e:
+            logger.error(f"Error loading chat history: {e}", exc_info=True)
+
+    # Add back the legacy method for compatibility
+    def add_chat_message(self, text, is_user=True):
+        """Legacy method maintained for compatibility"""
+        if is_user and isinstance(text, dict):
+            # Handle new format
+            timestamp = text.get('timestamp', '')
+            message = text.get('text', '')
+            audio_path = text.get('audio_path')
+            self.add_transcription_item(timestamp, message, audio_path)
+        elif is_user and isinstance(text, str):
+            # Try to extract timestamp and message from string format "HH:MM:SS > message"
+            parts = text.split('>', 1)
+            if len(parts) == 2:
+                timestamp = parts[0].strip()
+                message = parts[1].strip()
+                self.add_transcription_item(timestamp, message, None)
+            else:
+                # Fallback
+                self.add_transcription_item(datetime.now().strftime("%H:%M:%S"), text, None)
+        else:
+            # AI response
+            self.add_ai_response(text)
 
 def main():
     """Main entry point for the Qt application"""
