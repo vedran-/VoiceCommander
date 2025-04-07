@@ -11,7 +11,7 @@ import pyperclip  # For clipboard operations
 from datetime import datetime
 from PyQt6.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QPushButton
 from PyQt6.QtWidgets import QTextEdit, QLabel, QComboBox, QSplitter, QGroupBox, QGridLayout, QScrollArea
-from PyQt6.QtWidgets import QListWidget, QListWidgetItem  # Added for list widget
+from PyQt6.QtWidgets import QListWidget, QListWidgetItem, QDialog, QDialogButtonBox  # Added QDialog and QDialogButtonBox
 from PyQt6.QtCore import Qt, QThread, pyqtSignal, pyqtSlot, QMetaObject, QTimer, QPoint, QSettings, QSize
 from PyQt6.QtGui import QColor, QTextCursor, QFont, QIcon, QPalette, QAction, QPixmap, QCloseEvent, QPainter, QBrush
 from functools import partial  # Added for creating button callbacks
@@ -235,6 +235,232 @@ class TranscriptionListItem(QWidget):
             self.sound.stop()
             self.setPlaying(False)
             self.sound = None
+
+class SettingsDialog(QDialog):
+    """Dialog for application settings"""
+    
+    def __init__(self, parent=None, settings_manager=None, keyboard_service=None, audio_service=None):
+        super().__init__(parent)
+        self.parent = parent
+        self.settings_manager = settings_manager
+        self.keyboard_service = keyboard_service
+        self.audio_service = audio_service
+        self.shortcut_buttons = {}
+        
+        self.setWindowTitle("Settings")
+        self.setMinimumWidth(500)
+        self.setStyleSheet("""
+            QDialog {
+                background-color: #f8f9fc;
+            }
+            QGroupBox {
+                font-weight: bold;
+                border: 1px solid #e1e5ee;
+                border-radius: 8px;
+                margin-top: 12px;
+                background-color: #ffffff;
+            }
+            QGroupBox::title {
+                subcontrol-origin: margin;
+                left: 10px;
+                padding: 0 5px;
+                color: #505a7a;
+            }
+        """)
+        
+        self.setup_ui()
+        
+    def setup_ui(self):
+        """Set up the settings dialog UI"""
+        layout = QVBoxLayout(self)
+        layout.setSpacing(15)
+        
+        # Microphone selection group
+        mic_group = QGroupBox("Microphone")
+        mic_layout = QHBoxLayout()
+        mic_layout.addWidget(QLabel("Microphone:"))
+        self.microphone_combo = QComboBox()
+        
+        # Add available microphones
+        self.populate_microphones()
+        
+        # Set current microphone from settings
+        saved_mic_index = self.settings_manager.get('microphone_index', 0)
+        for i in range(self.microphone_combo.count()):
+            if self.microphone_combo.itemData(i) == saved_mic_index:
+                self.microphone_combo.setCurrentIndex(i)
+                break
+                
+        mic_layout.addWidget(self.microphone_combo)
+        mic_group.setLayout(mic_layout)
+        layout.addWidget(mic_group)
+        
+        # Keyboard shortcuts group
+        shortcuts_group = QGroupBox("Keyboard Shortcuts")
+        shortcuts_layout = QGridLayout()
+        shortcuts_layout.setContentsMargins(10, 5, 10, 5)
+        
+        # Define shortcut actions and their display names
+        shortcut_actions = [
+            ('toggle_push_to_talk', "Push-to-talk toggle:"),
+            ('toggle_recording', "Recording toggle:"),
+            ('toggle_ai_processing', "AI processing toggle:"),
+            ('toggle_auto_paste', "Auto-paste toggle:")
+        ]
+        
+        # Create UI elements for each shortcut
+        for row, (action_name, display_name) in enumerate(shortcut_actions):
+            # Create label with transparent background
+            label = QLabel(display_name)
+            label.setStyleSheet("background: transparent; color: #505a7a;")
+            shortcuts_layout.addWidget(label, row, 0)
+            
+            # Get the current shortcut or "None" if not set
+            current_shortcut = self.keyboard_service.get_shortcut(action_name)
+            button_text = current_shortcut if current_shortcut else "None"
+            
+            # Convert to a friendly name for display if it's a virtual key
+            if current_shortcut and (current_shortcut.startswith("vk") or current_shortcut.startswith("Key_0x")):
+                button_text = self.keyboard_service.get_friendly_key_name(current_shortcut)
+            
+            # Create button for this shortcut
+            shortcut_btn = QPushButton(button_text)
+            shortcut_btn.setToolTip("Click to set a new shortcut key (Escape/Delete to clear)")
+            shortcut_btn.setMinimumWidth(120)
+            
+            # Connect button to shortcut recording with the action name
+            shortcut_btn.clicked.connect(lambda checked, action=action_name: self.start_shortcut_recording(action))
+            
+            # Add to layout
+            shortcuts_layout.addWidget(shortcut_btn, row, 1)
+            
+            # Store reference to button for later updates
+            self.shortcut_buttons[action_name] = shortcut_btn
+        
+        shortcuts_group.setLayout(shortcuts_layout)
+        layout.addWidget(shortcuts_group)
+        
+        # Dialog buttons
+        button_box = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
+        button_box.accepted.connect(self.accept)
+        button_box.rejected.connect(self.reject)
+        layout.addWidget(button_box)
+    
+    def populate_microphones(self):
+        """Populate the microphone selection dropdown"""
+        self.microphone_combo.clear()
+        
+        # Add all available microphones
+        for device_id, device_name in self.audio_service.device_list:
+            self.microphone_combo.addItem(f"{device_name}", device_id)
+    
+    def start_shortcut_recording(self, action_name):
+        """Start recording a new keyboard shortcut for the given action"""
+        if action_name not in self.shortcut_buttons:
+            return
+            
+        button = self.shortcut_buttons[action_name]
+        
+        # Change button text to indicate recording state
+        original_text = button.text()
+        button.setText("Press any key...")
+        button.setStyleSheet("QPushButton { background-color: #ffcccc; }")
+        
+        # Temporarily stop all shortcut listeners while recording
+        try:
+            keyboard.unhook_all_hotkeys()
+            logging.debug("Temporarily unhooked all hotkeys for shortcut recording")
+        except Exception as e:
+            logging.error(f"Error unhooking hotkeys for recording: {e}")
+        
+        # Flag to track if key was recorded
+        key_recorded = False
+        
+        # Use the keyboard library to record the next keystroke
+        def on_key_event(e):
+            nonlocal key_recorded
+            
+            if key_recorded:
+                return
+                
+            try:
+                # Mark key as recorded to prevent multiple triggers
+                key_recorded = True
+                
+                # Get the key name from the event
+                key_str = e.name
+                
+                # For modifier combinations, get the full hotkey name
+                modifiers = []
+                if keyboard.is_pressed('ctrl'):
+                    modifiers.append('ctrl')
+                if keyboard.is_pressed('alt'):
+                    modifiers.append('alt')
+                if keyboard.is_pressed('shift'):
+                    modifiers.append('shift')
+                
+                # Build final key string
+                if modifiers and key_str not in modifiers:
+                    if len(key_str) == 1:  # Single character key
+                        key_str = '+'.join(modifiers + [key_str])
+                    else:  # Special key
+                        key_str = '+'.join(modifiers + [key_str])
+                
+                # Check if this is a cancel key
+                if key_str.lower() in self.keyboard_service.CANCEL_KEYS:
+                    # Clear the shortcut
+                    self.keyboard_service.set_shortcut(action_name, None)
+                    
+                    # Update the button text
+                    button.setText("None")
+                    button.setStyleSheet("")
+                else:
+                    # Update the shortcut
+                    self.keyboard_service.set_shortcut(action_name, key_str)
+                    
+                    # Update the button on the main thread
+                    button.setText(key_str)
+                    button.setStyleSheet("")
+            
+                # Clean up and unregister the hook
+                keyboard.unhook(hook_id)
+                
+                # Re-register all shortcuts after we're done
+                self.keyboard_service._register_all_shortcuts()
+                
+            except Exception as e:
+                logging.error(f"Error in shortcut key handler: {e}")
+                button.setText(original_text)
+                button.setStyleSheet("")
+                # Re-register all shortcuts
+                self.keyboard_service._register_all_shortcuts()
+        
+        # Hook the keyboard event
+        hook_id = keyboard.hook(on_key_event)
+        
+        # Add a timeout to reset the button if no key is pressed
+        def reset_button():
+            nonlocal key_recorded
+            if not key_recorded and button.text() == "Press any key...":
+                button.setText(original_text)
+                button.setStyleSheet("")
+                # Clean up hook if still active
+                try:
+                    keyboard.unhook(hook_id)
+                except:
+                    pass
+                # Re-register all shortcuts
+                self.keyboard_service._register_all_shortcuts()
+                
+        # Schedule the reset after 5 seconds
+        QTimer.singleShot(5000, reset_button)
+    
+    def get_selected_microphone(self):
+        """Get the currently selected microphone index"""
+        index = self.microphone_combo.currentIndex()
+        if index >= 0:
+            return self.microphone_combo.itemData(index)
+        return None
 
 class VoiceCommanderApp(QMainWindow):
     """
@@ -697,7 +923,7 @@ class VoiceCommanderApp(QMainWindow):
         # Add the button widget to the grid layout
         controls_grid.addWidget(button_widget, 0, 0, 1, 3)
         
-        # Row 2: Combined Language and Microphone selection
+        # Row 2: Language selection with Settings button
         selections_layout = QHBoxLayout()
         selections_layout.setContentsMargins(0, 0, 0, 0)  # Reduce margins
         
@@ -721,38 +947,18 @@ class VoiceCommanderApp(QMainWindow):
         self.language_combo.currentIndexChanged.connect(self.change_language)
         lang_layout.addWidget(self.language_combo)
         
+        # Add Settings button
+        self.settings_button = QPushButton("Settings")
+        self.settings_button.setIcon(QIcon.fromTheme("preferences-system", QIcon("assets/settings-icon.png")))
+        self.settings_button.clicked.connect(self.open_settings_dialog)
+        self.settings_button.setStyleSheet(button_style)
+        lang_layout.addWidget(self.settings_button)
+        
         # Add language selection to the combined layout
         selections_layout.addLayout(lang_layout)
         
-        # Add some spacing between the selections
-        selections_layout.addSpacing(20)
-        
-        # Microphone selection
-        mic_layout = QHBoxLayout()
-        mic_layout.addWidget(QLabel("Microphone:"))
-        self.microphone_combo = QComboBox()
-        
-        # Add available microphones
-        self.populate_microphones()
-        
-        # Set current microphone from settings
-        saved_mic_index = self.settings_manager.get('microphone_index', 0)
-        for i in range(self.microphone_combo.count()):
-            if self.microphone_combo.itemData(i) == saved_mic_index:
-                self.microphone_combo.setCurrentIndex(i)
-                break
-                
-        self.microphone_combo.currentIndexChanged.connect(self.change_microphone)
-        mic_layout.addWidget(self.microphone_combo)
-        
-        # Add microphone selection to the combined layout
-        selections_layout.addLayout(mic_layout)
-        
         # Add the combined selections to the grid
         controls_grid.addLayout(selections_layout, 1, 0, 1, 3)
-        
-        # Add a Keyboard Shortcuts section to the settings
-        self.setup_shortcut_ui(controls_grid)
         
         # Set the grid layout to the controls group
         controls_group.setLayout(controls_grid)
@@ -783,11 +989,14 @@ class VoiceCommanderApp(QMainWindow):
     
     def populate_microphones(self):
         """Populate the microphone selection dropdown"""
-        self.microphone_combo.clear()
-        
-        # Add all available microphones
-        for device_id, device_name in self.audio_service.device_list:
-            self.microphone_combo.addItem(f"{device_name}", device_id)
+        # This method is kept for backward compatibility
+        # It's no longer used in the main window but may be called elsewhere
+        if hasattr(self, 'microphone_combo'):
+            self.microphone_combo.clear()
+            
+            # Add all available microphones
+            for device_id, device_name in self.audio_service.device_list:
+                self.microphone_combo.addItem(f"{device_name}", device_id)
     
     def update_ui_state(self):
         """Update UI elements based on current application state"""
@@ -1207,179 +1416,61 @@ class VoiceCommanderApp(QMainWindow):
                 self.language_combo.blockSignals(False)
                 break
 
-    def setup_shortcut_ui(self, parent_layout):
-        """Set up UI elements for keyboard shortcut configuration"""
-        # Create a group box for shortcuts
-        shortcuts_group = QGroupBox("Keyboard Shortcuts")
-        shortcuts_group.setStyleSheet("QGroupBox { padding-top: 15px; margin-top: 5px; }")
-        shortcuts_layout = QGridLayout()
-        shortcuts_layout.setContentsMargins(10, 5, 10, 5)
+    def open_settings_dialog(self):
+        """Open the settings dialog"""
+        settings_dialog = SettingsDialog(
+            self, 
+            self.settings_manager, 
+            self.keyboard_service,
+            self.audio_service
+        )
         
-        # Define shortcut actions and their display names
-        shortcut_actions = [
-            ('toggle_push_to_talk', "Push-to-talk toggle:"),
-            ('toggle_recording', "Recording toggle:"),
-            ('toggle_ai_processing', "AI processing toggle:"),
-            ('toggle_auto_paste', "Auto-paste toggle:")
-        ]
-        
-        # Create UI elements for each shortcut
-        for row, (action_name, display_name) in enumerate(shortcut_actions):
-            # Create label with transparent background
-            label = QLabel(display_name)
-            label.setStyleSheet("background: transparent; color: #505a7a;")
-            shortcuts_layout.addWidget(label, row, 0)
+        # Show the dialog and wait for user to finish
+        if settings_dialog.exec() == QDialog.DialogCode.Accepted:
+            # Apply microphone changes if needed
+            new_mic_index = settings_dialog.get_selected_microphone()
+            current_mic_index = self.audio_service.device_index
             
-            # Get the current shortcut or "None" if not set
-            current_shortcut = self.keyboard_service.get_shortcut(action_name)
-            button_text = current_shortcut if current_shortcut else "None"
-            
-            # Convert to a friendly name for display if it's a virtual key
-            if current_shortcut and (current_shortcut.startswith("vk") or current_shortcut.startswith("Key_0x")):
-                button_text = self.keyboard_service.get_friendly_key_name(current_shortcut)
-            
-            # Create button for this shortcut
-            shortcut_btn = QPushButton(button_text)
-            shortcut_btn.setToolTip("Click to set a new shortcut key (Escape/Delete to clear)")
-            shortcut_btn.setMinimumWidth(120)
-            
-            # Connect button to shortcut recording with the action name
-            shortcut_btn.clicked.connect(lambda checked, action=action_name: self.start_shortcut_recording(action))
-            
-            # Add to layout
-            shortcuts_layout.addWidget(shortcut_btn, row, 1)
-            
-            # Store reference to button for later updates
-            self.shortcut_buttons[action_name] = shortcut_btn
-        
-        # Set the layout for the group box
-        shortcuts_group.setLayout(shortcuts_layout)
-        
-        # Add the group box to the parent layout
-        parent_layout.addWidget(shortcuts_group, 4, 0, 1, 3)  # Assuming this goes below existing controls
-    
-    def start_shortcut_recording(self, action_name):
-        """Start recording a new keyboard shortcut for the given action"""
-        if action_name not in self.shortcut_buttons:
-            return
-            
-        button = self.shortcut_buttons[action_name]
-        
-        # Change button text to indicate recording state
-        original_text = button.text()
-        button.setText("Press any key...")
-        button.setStyleSheet("QPushButton { background-color: #ffcccc; }")
-        
-        # Store the original shortcuts so we can restore them later
-        original_shortcuts = {}
-        try:
-            # Temporarily stop all shortcut listeners while recording
-            keyboard.unhook_all_hotkeys()
-            logger.debug("Temporarily unhooked all hotkeys for shortcut recording")
-        except Exception as e:
-            logger.error(f"Error unhooking hotkeys for recording: {e}")
-        
-        # Flag to track if key was recorded
-        key_recorded = False
-        
-        # Use the keyboard library to record the next keystroke
-        def on_key_event(e):
-            nonlocal key_recorded
-            
-            if key_recorded:
-                return
+            if new_mic_index is not None and new_mic_index != current_mic_index:
+                # Get the device name for logging
+                device_name = ""
+                for i in range(settings_dialog.microphone_combo.count()):
+                    if settings_dialog.microphone_combo.itemData(i) == new_mic_index:
+                        device_name = settings_dialog.microphone_combo.itemText(i)
+                        break
                 
-            try:
-                # Mark key as recorded to prevent multiple triggers
-                key_recorded = True
-                
-                # Get the key name from the event
-                key_str = e.name
-                
-                # For modifier combinations, get the full hotkey name
-                modifiers = []
-                if keyboard.is_pressed('ctrl'):
-                    modifiers.append('ctrl')
-                if keyboard.is_pressed('alt'):
-                    modifiers.append('alt')
-                if keyboard.is_pressed('shift'):
-                    modifiers.append('shift')
-                
-                # Build final key string
-                if modifiers and key_str not in modifiers:
-                    if len(key_str) == 1:  # Single character key
-                        key_str = '+'.join(modifiers + [key_str])
-                    else:  # Special key
-                        key_str = '+'.join(modifiers + [key_str])
-                
-                # Check if this is a cancel key
-                if key_str.lower() in self.keyboard_service.CANCEL_KEYS:
-                    # Clear the shortcut
-                    self.keyboard_service.set_shortcut(action_name, None)
+                # Stop audio processing temporarily
+                if hasattr(self, 'audio_worker'):
+                    self.audio_worker.stop()
                     
-                    # Update the button text
-                    button.setText("None")
-                    button.setStyleSheet("")
-                    self.log_status(f"Shortcut for {action_name} has been cleared")
+                # Pause transcription
+                was_transcribing = self.transcription_service.is_transcribing
+                if was_transcribing:
+                    self.transcription_service.pause_transcription()
+                
+                # Switch the device
+                if self.audio_service.switch_device(new_mic_index):
+                    # Save the selection to settings
+                    self.settings_manager.set('microphone_index', new_mic_index)
+                    self.settings_manager.set('microphone_name', device_name)
+                    
+                    # Log the change
+                    self.log_status(f"Microphone switched to {device_name}")
+                    
+                    # Important: We need to recreate the recognizer with the new device's parameters
+                    self.transcription_service.reset_recognizer()
+                    
+                    # Wait a moment for audio system to stabilize
+                    time.sleep(0.5)
+                    
+                    # Restart audio processing
+                    self.start_audio_processing()
+                    
+                    # Resume transcription if it was active
+                    if was_transcribing:
+                        self.transcription_service.resume_transcription()
                 else:
-                    # Update the shortcut
-                    self.keyboard_service.set_shortcut(action_name, key_str)
-                    
-                    # Update the button on the main thread
-                    button.setText(key_str)
-                    button.setStyleSheet("")
-                    self.log_status(f"Shortcut for {action_name} set to {key_str}")
-            
-                # Clean up and unregister the hook
-                keyboard.unhook(hook_id)
-                
-                # Re-register all shortcuts after we're done
-                self.keyboard_service._register_all_shortcuts()
-                
-            except Exception as e:
-                logger.error(f"Error in shortcut key handler: {e}")
-                button.setText(original_text)
-                button.setStyleSheet("")
-                # Re-register all shortcuts
-                self.keyboard_service._register_all_shortcuts()
-        
-        # Hook the keyboard event
-        hook_id = keyboard.hook(on_key_event)
-        
-        # Add a timeout to reset the button if no key is pressed
-        def reset_button():
-            nonlocal key_recorded
-            if not key_recorded and button.text() == "Press any key...":
-                button.setText(original_text)
-                button.setStyleSheet("")
-                # Clean up hook if still active
-                try:
-                    keyboard.unhook(hook_id)
-                except:
-                    pass
-                # Re-register all shortcuts
-                self.keyboard_service._register_all_shortcuts()
-                
-        # Schedule the reset after 5 seconds
-        QTimer.singleShot(5000, reset_button)
-    
-    @pyqtSlot(str)
-    def on_shortcut_triggered(self, action_name):
-        """Handle when a keyboard shortcut is triggered"""
-        logger.info(f"Shortcut triggered for action: {action_name}")
-        
-        # Log the shortcut usage to the status
-        shortcut_key = self.keyboard_service.get_shortcut(action_name)
-        
-        # Try to get a friendly name for display
-        display_key = shortcut_key
-        if shortcut_key and (shortcut_key.startswith("vk") or shortcut_key.startswith("Key_0x")):
-            display_key = self.keyboard_service.get_friendly_key_name(shortcut_key)
-            
-        self.log_status(f"Keyboard shortcut [{display_key}] activated: {action_name}")
-        
-        # No need to do anything here as the action is directly connected to the method
-        # The methods will be called directly by the keyboard service
+                    self.log_status(f"Failed to switch to microphone: {device_name}")
 
     def play_audio(self, audio_path, item_widget):
         """Play or stop the audio file at the given path"""
@@ -1574,6 +1665,23 @@ class VoiceCommanderApp(QMainWindow):
         except Exception as e:
             self.log_status(f"Error copying to clipboard: {e}")
 
+    def on_shortcut_triggered(self, action_name):
+        """Handle when a keyboard shortcut is triggered"""
+        logger.info(f"Shortcut triggered for action: {action_name}")
+        
+        # Log the shortcut usage to the status
+        shortcut_key = self.keyboard_service.get_shortcut(action_name)
+        
+        # Try to get a friendly name for display
+        display_key = shortcut_key
+        if shortcut_key and (shortcut_key.startswith("vk") or shortcut_key.startswith("Key_0x")):
+            display_key = self.keyboard_service.get_friendly_key_name(shortcut_key)
+            
+        self.log_status(f"Keyboard shortcut [{display_key}] activated: {action_name}")
+        
+        # No need to do anything here as the action is directly connected to the method
+        # The methods will be called directly by the keyboard service
+        
 def main():
     """Main entry point for the Qt application"""
     # Enable high DPI scaling
