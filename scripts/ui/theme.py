@@ -1,5 +1,6 @@
 from PyQt6.QtCore import Qt, QSize
-from PyQt6.QtGui import QIcon, QPixmap
+from PyQt6.QtGui import QIcon, QPixmap, QPainter, QColor
+import os
 
 class ThemeManager:
     """Manages application themes and provides styling"""
@@ -342,4 +343,37 @@ class ThemeManager:
                 font-family: 'Segoe UI', sans-serif;
                 min-height: 16px;
             """
-        } 
+        }
+        
+    @classmethod
+    def get_icon_color(cls, theme):
+        """Get the appropriate icon color for the current theme"""
+        return "#ffffff" if theme.lower() == "dark" else "#000000"
+        
+    @classmethod
+    def get_themed_icon(cls, icon_path, theme, size=None):
+        """Returns a QIcon with appropriate color based on theme"""
+        # Default to black icons for light theme, white for dark theme
+        color = cls.get_icon_color(theme)
+        
+        # Load the original icon
+        orig_pixmap = QPixmap(icon_path)
+        
+        # Scale if size provided
+        if size:
+            orig_pixmap = orig_pixmap.scaled(size, size)
+            
+        # Create a new pixmap with same size
+        new_pixmap = QPixmap(orig_pixmap.size())
+        new_pixmap.fill(Qt.GlobalColor.transparent)
+        
+        # Create painter for the new pixmap
+        painter = QPainter(new_pixmap)
+        
+        # Draw the icon with the theme-appropriate color
+        painter.setCompositionMode(QPainter.CompositionMode.CompositionMode_SourceOver)
+        painter.setPen(QColor(color))
+        painter.drawPixmap(0, 0, orig_pixmap)
+        painter.end()
+        
+        return QIcon(new_pixmap) 

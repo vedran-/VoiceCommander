@@ -189,7 +189,7 @@ class GroqWhisperService:
                 prompt=self._unfamiliar_words,  # Optional
                 response_format="verbose_json",  # Optional
                 language=self.language,  # Optional
-                temperature=0.0  # Optional
+                temperature=0.4  # Optional
             )
         except Exception as e:
             print(f"Transcription API error: {e}")
@@ -571,7 +571,7 @@ class GroqWhisperService:
             response = self.client.chat.completions.create(
                 model=self._model,
                 messages=self.messages,
-                temperature=0.0,
+                temperature=0.4,
                 max_tokens=1024,
                 top_p=1,
                 stream=False

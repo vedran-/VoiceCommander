@@ -33,9 +33,15 @@ class SettingsDialog(QDialog):
         
         self.setWindowTitle("Settings")
         self.setMinimumWidth(600)
+        
+        # Apply theme
         self.setStyleSheet(ThemeManager.get_dialog_style(self.theme))
         
+        # Setup UI components
         self.setup_ui()
+        
+        # Ensure theme is fully applied to all components
+        self.apply_theme(self.theme)
         
     def setup_ui(self):
         """Set up the settings dialog UI"""
@@ -51,15 +57,20 @@ class SettingsDialog(QDialog):
         scroll_area.setFrameShape(QScrollArea.Shape.NoFrame)
         
         # Create a widget to contain all the settings
-        scroll_content = QWidget()
-        scroll_layout = QVBoxLayout(scroll_content)
+        self.scroll_content = QWidget()  # Store as instance variable so we can reference it later
+        self.scroll_content.setStyleSheet(f"background-color: {colors['bg_primary']};")
+        scroll_layout = QVBoxLayout(self.scroll_content)
         scroll_layout.setSpacing(15)
         
         # UI Theme group
         theme_group = QGroupBox("UI Theme")
         theme_layout = QHBoxLayout()
         
-        theme_layout.addWidget(QLabel("Theme:"))
+        # Create label with explicit non-transparent background
+        theme_label = QLabel("Theme:")
+        theme_label.setStyleSheet(f"background-color: {colors['bg_secondary']}; color: {colors['text_primary']}")
+        theme_layout.addWidget(theme_label)
+        
         self.theme_combo = QComboBox()
         self.theme_combo.addItems(["Light", "Dark"])
         
@@ -181,9 +192,9 @@ class SettingsDialog(QDialog):
         
         # Create UI elements for each shortcut
         for row, (action_name, display_name) in enumerate(shortcut_actions):
-            # Create label with transparent background
+            # Create label with non-transparent background
             label = QLabel(display_name)
-            label.setStyleSheet(f"background: transparent; color: {colors['text_primary']};")
+            label.setStyleSheet(f"background-color: {colors['bg_secondary']}; color: {colors['text_primary']};")
             shortcuts_layout.addWidget(label, row, 0)
             
             # Get the display string for the shortcut
@@ -210,7 +221,7 @@ class SettingsDialog(QDialog):
         scroll_layout.addWidget(shortcuts_group)
         
         # Set the scroll content widget
-        scroll_area.setWidget(scroll_content)
+        scroll_area.setWidget(self.scroll_content)
         layout.addWidget(scroll_area)
         
         # Close button
@@ -234,22 +245,14 @@ class SettingsDialog(QDialog):
         
         # Update dialog appearance
         self.theme = theme_name
-        self.setStyleSheet(ThemeManager.get_dialog_style(theme_name))
         
-        # Update button styles
-        colors = ThemeManager.get_theme(theme_name)
-        for btn in self.shortcut_buttons.values():
-            btn.setStyleSheet(ThemeManager.get_inactive_button_style(theme_name))
-            
-        self.close_button.setStyleSheet(ThemeManager.get_inactive_button_style(theme_name))
+        # Apply theme to all components
+        self.apply_theme(theme_name)
         
-        # Update all labels' color
-        for label in self.findChildren(QLabel):
-            label.setStyleSheet(f"background: transparent; color: {colors['text_primary']};")
-        
-        # If we have a parent, notify it to update its theme too
+        # Notify parent to update its theme completely 
         if self.parent and hasattr(self.parent, 'change_theme'):
-            self.parent.change_theme(theme_name)
+            # Delay the main window theme change slightly to avoid UI flickering
+            QTimer.singleShot(100, lambda: self.parent.change_theme(theme_name))
     
     def save_api_key(self, text):
         """Save API key to settings"""
@@ -475,4 +478,139 @@ class SettingsDialog(QDialog):
         index = self.microphone_combo.currentIndex()
         if index >= 0:
             return self.microphone_combo.itemData(index)
-        return None 
+        return None
+
+    def apply_theme(self, theme_name):
+        """Apply theme to all components in the dialog"""
+        colors = ThemeManager.get_theme(theme_name)
+        
+        # Set the overall dialog style first
+        self.setStyleSheet(ThemeManager.get_dialog_style(theme_name))
+        
+        # Explicitly style the scroll content widget which holds all settings
+        self.scroll_content.setStyleSheet(f"background-color: {colors['bg_primary']};")
+        
+        # Explicitly style all major widget types
+        
+        # Update all labels
+        for label in self.findChildren(QLabel):
+            label.setStyleSheet(f"color: {colors['text_primary']}; background-color: {colors['bg_secondary']};")
+            
+        # Update all buttons
+        for btn in self.findChildren(QPushButton):
+            if btn in self.shortcut_buttons.values():
+                btn.setStyleSheet(ThemeManager.get_inactive_button_style(theme_name))
+            elif btn == self.close_button:
+                btn.setStyleSheet(ThemeManager.get_inactive_button_style(theme_name))
+                
+        # Update all group boxes
+        for group_box in self.findChildren(QGroupBox):
+            group_box.setStyleSheet(f"""
+                QGroupBox {{
+                    font-weight: bold;
+                    border: 1px solid {colors['border']};
+                    border-radius: 8px;
+                    margin-top: 12px;
+                    background-color: {colors['bg_secondary']};
+                }}
+                QGroupBox::title {{
+                    subcontrol-origin: margin;
+                    left: 10px;
+                    padding: 0 5px;
+                    color: {colors['text_primary']};
+                }}
+            """)
+            
+        # Update combo boxes
+        for combo in self.findChildren(QComboBox):
+            combo.setStyleSheet(f"""
+                QComboBox {{
+                    border: 1px solid {colors['border']};
+                    border-radius: 6px;
+                    padding: 5px;
+                    background-color: {colors['bg_secondary']};
+                    color: {colors['text_primary']};
+                }}
+                QComboBox::drop-down {{
+                    border: none;
+                    width: 24px;
+                }}
+                QComboBox QAbstractItemView {{
+                    background-color: {colors['bg_secondary']};
+                    border: 1px solid {colors['border']};
+                    border-radius: 6px;
+                    selection-background-color: {colors['bg_accent']};
+                    selection-color: {colors['text_primary']};
+                }}
+            """)
+            
+        # Update line edits
+        for line_edit in self.findChildren(QLineEdit):
+            line_edit.setStyleSheet(f"""
+                QLineEdit {{
+                    border: 1px solid {colors['border']};
+                    border-radius: 6px;
+                    padding: 8px;
+                    background-color: {colors['bg_secondary']};
+                    color: {colors['text_primary']};
+                }}
+                QLineEdit:focus {{
+                    border: 1px solid {colors['accent']};
+                }}
+            """)
+            
+        # Update text edits
+        for text_edit in self.findChildren(QTextEdit):
+            text_edit.setStyleSheet(f"""
+                QTextEdit {{
+                    border: 1px solid {colors['border']};
+                    border-radius: 6px;
+                    padding: 8px;
+                    background-color: {colors['bg_secondary']};
+                    color: {colors['text_primary']};
+                }}
+                QTextEdit:focus {{
+                    border: 1px solid {colors['accent']};
+                }}
+            """)
+        
+        # Update scroll areas
+        for scroll_area in self.findChildren(QScrollArea):
+            scroll_area.setStyleSheet(f"""
+                QScrollArea {{
+                    background-color: {colors['bg_primary']};
+                    border: none;
+                }}
+                QScrollBar:vertical {{
+                    border: none;
+                    background: {colors['scrollbar']};
+                    width: 8px;
+                    margin: 0px;
+                }}
+                QScrollBar::handle:vertical {{
+                    background: {colors['scrollbar_handle']};
+                    border-radius: 4px;
+                    min-height: 20px;
+                }}
+                QScrollBar::handle:vertical:hover {{
+                    background: {colors['scrollbar_handle_hover']};
+                }}
+                QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{
+                    border: none;
+                    background: none;
+                    height: 0px;
+                }}
+            """)
+        
+        # Update general container widgets
+        for widget in self.findChildren(QWidget):
+            if (isinstance(widget, QWidget) and not any(isinstance(widget, t) for t in 
+                 [QLabel, QPushButton, QComboBox, QLineEdit, QTextEdit, QGroupBox, QScrollArea])):
+                if widget.layout() is not None:
+                    widget.setStyleSheet(f"background-color: {colors['bg_primary']};")
+        
+        # Force style update on all widgets
+        for widget in self.findChildren(QWidget):
+            widget.style().unpolish(widget)
+            widget.style().polish(widget)
+            widget.update() 

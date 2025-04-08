@@ -48,7 +48,7 @@ class TranscriptionListItem(QWidget):
         
         # Copy button with icon
         self.copy_button = QPushButton()
-        self.copy_button.setIcon(QIcon.fromTheme("edit-copy", QIcon("assets/copy-icon.png")))
+        self.copy_button.setIcon(ThemeManager.get_themed_icon("assets/copy-icon.png", self.theme, 14))
         self.copy_button.setIconSize(QSize(14, 14))
         self.copy_button.setToolTip("Copy transcription to clipboard")
         self.copy_button.setFixedSize(22, 22)
@@ -57,7 +57,7 @@ class TranscriptionListItem(QWidget):
         
         # Play button with icon
         self.play_button = QPushButton()
-        self.play_button.setIcon(QIcon.fromTheme("media-playback-start", QIcon("assets/play-icon.png")))
+        self.play_button.setIcon(ThemeManager.get_themed_icon("assets/play-icon.png", self.theme, 14))
         self.play_button.setIconSize(QSize(14, 14))
         self.play_button.setToolTip("Play audio")
         self.play_button.setFixedSize(22, 22)
@@ -67,7 +67,7 @@ class TranscriptionListItem(QWidget):
         
         # Transcribe Again button with icon
         self.transcribe_button = QPushButton()
-        self.transcribe_button.setIcon(QIcon.fromTheme("view-refresh", QIcon("assets/refresh-icon.png")))
+        self.transcribe_button.setIcon(ThemeManager.get_themed_icon("assets/refresh-icon.png", self.theme, 14))
         self.transcribe_button.setIconSize(QSize(14, 14))
         self.transcribe_button.setToolTip("Transcribe again")
         self.transcribe_button.setFixedSize(22, 22)
@@ -99,22 +99,29 @@ class TranscriptionListItem(QWidget):
         self.text_label.setText(new_text)
         
     def setTheme(self, theme):
-        """Update the widget's theme"""
+        """Update the widget with the current theme"""
         self.theme = theme
         styles = ThemeManager.get_transcription_item_styles(theme)
         
-        # Update styles
+        # Update timestamp and text
         self.timestamp_label.setStyleSheet(styles["timestamp_style"])
         self.text_label.setStyleSheet(styles["text_style"])
         
-        # Update button styles based on playing state
-        if self.is_playing:
-            self.play_button.setStyleSheet(styles["playing_button_style"])
-        else:
-            self.play_button.setStyleSheet(styles["button_style"])
-            
+        # Update buttons
         self.copy_button.setStyleSheet(styles["button_style"])
+        self.play_button.setStyleSheet(styles["button_style"] if not self.is_playing else styles["playing_button_style"])
         self.transcribe_button.setStyleSheet(styles["button_style"])
+        
+        # Update button icons with themed versions
+        self.copy_button.setIcon(ThemeManager.get_themed_icon("assets/copy-icon.png", theme, 14))
+        
+        # Update play button icon based on playing state
+        if self.is_playing:
+            self.play_button.setIcon(ThemeManager.get_themed_icon("assets/stop-icon.png", theme, 14))
+        else:
+            self.play_button.setIcon(ThemeManager.get_themed_icon("assets/play-icon.png", theme, 14))
+            
+        self.transcribe_button.setIcon(ThemeManager.get_themed_icon("assets/refresh-icon.png", theme, 14))
         
     def setPlaying(self, is_playing):
         """Update the play button state"""
@@ -122,11 +129,11 @@ class TranscriptionListItem(QWidget):
         styles = ThemeManager.get_transcription_item_styles(self.theme)
         
         if is_playing:
-            self.play_button.setIcon(QIcon.fromTheme("media-playback-stop", QIcon("assets/stop-icon.png")))
+            self.play_button.setIcon(ThemeManager.get_themed_icon("assets/stop-icon.png", self.theme, 14))
             self.play_button.setToolTip("Stop playback")
             self.play_button.setStyleSheet(styles["playing_button_style"])
         else:
-            self.play_button.setIcon(QIcon.fromTheme("media-playback-start", QIcon("assets/play-icon.png")))
+            self.play_button.setIcon(ThemeManager.get_themed_icon("assets/play-icon.png", self.theme, 14))
             self.play_button.setToolTip("Play audio")
             self.play_button.setStyleSheet(styles["button_style"])
         

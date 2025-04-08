@@ -65,8 +65,8 @@ class VoiceCommanderApp(QMainWindow):
         self.setGeometry(100, 100, 1200, 800)
         self.setWindowIcon(QIcon("assets/voice-commander.png"))
         
-        # Apply theme-based style
-        self.setStyleSheet(ThemeManager.get_main_window_style(self.theme))
+        # Apply theme-based style after UI is fully set up (will be done in setup_ui)
+        # Theme styling is now deferred until after UI is created
         
         # Initialize attributes
         self.audio_service = None
@@ -91,17 +91,23 @@ class VoiceCommanderApp(QMainWindow):
         # Build UI after services are initialized
         self.setup_ui()
         
+        # Fully apply the theme to all components now that UI is created
+        self.change_theme(self.theme)
+        
         # Update UI state
         self.update_ui_state()
         
         # Load saved chat history after UI is set up
         self.load_chat_history()
         
+        # Connect closeEvent handler
+        self.closeEvent = self.on_close
+        
         # Start audio processing
         self.start_audio_processing()
         
-        # Set up window close handling
-        self.closeEvent = self.on_close
+        # Log application startup
+        self.log_status("Voice Commander initialized. Ready for commands.")
     
     def initialize_services(self):
         """Initialize the application services"""
@@ -246,15 +252,16 @@ class VoiceCommanderApp(QMainWindow):
         # Conversation header with control buttons
         header_layout = QHBoxLayout()
         
-        # Add app logo/icon to the header
+        # Add app logo/icon to the header - using actual app icon instead of PNG
         app_icon = QLabel()
-        pixmap = QPixmap("assets/voice-commander.png").scaled(24, 24, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
-        app_icon.setPixmap(pixmap)
+        # Use fully transparent background (both in light and dark themes)
+        app_icon.setStyleSheet("background-color: transparent;")
+        app_icon.setText("🎤")  # Simple microphone icon
         header_layout.addWidget(app_icon)
         
-        # Add title with larger, bolder font
+        # Add title with larger, bolder font and transparent background
         chat_label = QLabel("Voice Commander")
-        chat_label.setStyleSheet(f"font-weight: bold; font-size: 16px; color: {colors['text_primary']};")
+        chat_label.setStyleSheet("font-weight: bold; font-size: 16px; color: #505a7a; background-color: transparent;")
         header_layout.addWidget(chat_label)
         
         # Get button style
@@ -263,16 +270,11 @@ class VoiceCommanderApp(QMainWindow):
         # Push buttons to the right side
         header_layout.addStretch(1)
         
-        # Add theme toggle button
-        self.theme_button = QPushButton("Toggle Theme")
-        self.theme_button.setIcon(QIcon.fromTheme("preferences-desktop-theme", QIcon("assets/theme-icon.png")))
-        self.theme_button.clicked.connect(self.toggle_theme)
-        self.theme_button.setStyleSheet(button_style)
-        header_layout.addWidget(self.theme_button)
-        
         # Add New Chat button to the conversation header
         self.reset_button = QPushButton("New Chat")
-        self.reset_button.setIcon(QIcon.fromTheme("document-new", QIcon("assets/new-icon.png")))
+        new_icon = ThemeManager.get_themed_icon("assets/new-icon.png", self.theme, 16)
+        self.reset_button.setIcon(new_icon)
+        self.reset_button.setText("🔄 New Chat")  # Unicode refresh icon
         self.reset_button.clicked.connect(self.new_chat)
         self.reset_button.setStyleSheet(button_style)
         header_layout.addWidget(self.reset_button)
@@ -309,9 +311,9 @@ class VoiceCommanderApp(QMainWindow):
         splitter.addWidget(chat_container)
         
         # Controls area
-        controls_container = QWidget()
-        controls_container.setStyleSheet(f"background-color: {colors['bg_primary']};")
-        controls_layout = QVBoxLayout(controls_container)
+        self.controls_container = QWidget()
+        self.controls_container.setStyleSheet(f"background-color: {colors['bg_primary']};")
+        controls_layout = QVBoxLayout(self.controls_container)
         controls_layout.setSpacing(10)
         controls_layout.setContentsMargins(0, 0, 0, 0)
         
@@ -346,29 +348,37 @@ class VoiceCommanderApp(QMainWindow):
         button_layout.setSpacing(10)  # Increase spacing between buttons
         
         # Recording control button
-        self.record_button = QPushButton("Start Transcription")
-        self.record_button.setIcon(QIcon.fromTheme("media-record", QIcon("assets/record-icon.png")))
+        self.record_button = QPushButton(" Recording")
+        record_icon = ThemeManager.get_themed_icon("assets/record-icon.png", self.theme, 16)
+        self.record_button.setIcon(record_icon)
+        self.record_button.setText("⏺️ Start Transcription")  # Unicode record icon
         self.record_button.clicked.connect(self.toggle_recording)
         self.record_button.setStyleSheet(inactive_button_style)  # Will be updated in update_ui_state()
         button_layout.addWidget(self.record_button)
         
         # Push to Talk button
         self.push_to_talk_button = QPushButton("Push to Talk")
-        self.push_to_talk_button.setIcon(QIcon.fromTheme("audio-input-microphone", QIcon("assets/mic-icon.png")))
+        mic_icon = ThemeManager.get_themed_icon("assets/mic-icon.png", self.theme, 16)
+        self.push_to_talk_button.setIcon(mic_icon)
+        self.push_to_talk_button.setText("🎤 Push to Talk")  # Unicode microphone icon
         self.push_to_talk_button.clicked.connect(self.toggle_push_to_talk)
         self.push_to_talk_button.setStyleSheet(inactive_button_style)  # Will be updated in update_ui_state()
         button_layout.addWidget(self.push_to_talk_button)
         
         # LLM processing toggle button
         self.mute_button = QPushButton("AI Processing: On")
-        self.mute_button.setIcon(QIcon.fromTheme("system-run", QIcon("assets/ai-icon.png")))
+        ai_icon = ThemeManager.get_themed_icon("assets/ai-icon.png", self.theme, 16)
+        self.mute_button.setIcon(ai_icon)
+        self.mute_button.setText("🤖 AI Processing: On")  # Unicode robot icon
         self.mute_button.clicked.connect(self.toggle_mute)
         self.mute_button.setStyleSheet(inactive_button_style)  # Will be updated in update_ui_state()
         button_layout.addWidget(self.mute_button)
         
         # Automatic paste toggle button
         self.paste_button = QPushButton("Auto-Paste: On")
-        self.paste_button.setIcon(QIcon.fromTheme("edit-paste", QIcon("assets/paste-icon.png")))
+        paste_icon = ThemeManager.get_themed_icon("assets/paste-icon.png", self.theme, 16)
+        self.paste_button.setIcon(paste_icon)
+        self.paste_button.setText("📋 Auto-Paste: On")  # Unicode clipboard icon
         self.paste_button.clicked.connect(self.toggle_paste)
         self.paste_button.setStyleSheet(inactive_button_style)  # Will be updated in update_ui_state()
         button_layout.addWidget(self.paste_button)
@@ -386,7 +396,9 @@ class VoiceCommanderApp(QMainWindow):
         
         # Language selection
         lang_layout = QHBoxLayout()
-        lang_layout.addWidget(QLabel("Language:"))
+        lang_label = QLabel("Language:")
+        lang_label.setStyleSheet(f"background-color: {colors['bg_secondary']}; color: {colors['text_primary']};")
+        lang_layout.addWidget(lang_label)
         self.language_combo = QComboBox()
         self.language_combo.setMinimumWidth(120)  # Match button width
         
@@ -404,9 +416,11 @@ class VoiceCommanderApp(QMainWindow):
         self.language_combo.currentIndexChanged.connect(self.change_language)
         lang_layout.addWidget(self.language_combo)
         
-        # Add Settings button
+        # Add Settings button that opens the settings dialog
         self.settings_button = QPushButton("Settings")
-        self.settings_button.setIcon(QIcon.fromTheme("preferences-system", QIcon("assets/settings-icon.png")))
+        settings_icon = ThemeManager.get_themed_icon("assets/settings-icon.png", self.theme, 16)
+        self.settings_button.setIcon(settings_icon)
+        self.settings_button.setText("⚙️ Settings")  # Unicode gear icon
         self.settings_button.clicked.connect(self.open_settings_dialog)
         self.settings_button.setStyleSheet(button_style)
         lang_layout.addWidget(self.settings_button)
@@ -450,7 +464,7 @@ class VoiceCommanderApp(QMainWindow):
         controls_layout.addWidget(status_group)
         
         # Add controls to splitter
-        splitter.addWidget(controls_container)
+        splitter.addWidget(self.controls_container)
         
         # Set the splitter's initial sizes (70% chat, 30% controls)
         splitter.setSizes([int(self.height() * 0.7), int(self.height() * 0.3)])
@@ -476,59 +490,133 @@ class VoiceCommanderApp(QMainWindow):
         # Apply new theme to main window
         self.setStyleSheet(ThemeManager.get_main_window_style(new_theme))
         
+        # Get theme colors for direct widget styling
+        colors = ThemeManager.get_theme(new_theme)
+        
+        # Explicitly style central widget to ensure main background color is applied
+        self.centralWidget().setStyleSheet(f"background-color: {colors['bg_primary']};")
+        
         # Update button styles in UI
         self.update_ui_state()
         
-        # Update the chat display style
-        colors = ThemeManager.get_theme(new_theme)
-        self.chat_display.setStyleSheet(f"""
-            QListWidget {{
-                border: 1px solid {colors['border']};
-                border-radius: 8px;
-                background-color: {colors['bg_secondary']};
-                alternate-background-color: {colors['bg_primary']};
-                padding: 2px;
-            }}
-            QListWidget::item {{
-                border-bottom: 1px solid {colors['border']};
-                padding: 1px;
-                border-radius: 6px;
-            }}
-            QListWidget::item:hover {{
-                background-color: {colors['bg_accent']};
-            }}
-        """)
+        # Update icons for the new theme
+        self.record_button.setIcon(ThemeManager.get_themed_icon("assets/record-icon.png", new_theme, 16))
+        self.push_to_talk_button.setIcon(ThemeManager.get_themed_icon("assets/mic-icon.png", new_theme, 16))
+        self.mute_button.setIcon(ThemeManager.get_themed_icon("assets/ai-icon.png", new_theme, 16))
+        self.paste_button.setIcon(ThemeManager.get_themed_icon("assets/paste-icon.png", new_theme, 16))
+        self.reset_button.setIcon(ThemeManager.get_themed_icon("assets/new-icon.png", new_theme, 16))
+        self.settings_button.setIcon(ThemeManager.get_themed_icon("assets/settings-icon.png", new_theme, 16))
         
-        # Update theme for all transcription items
+        # Apply theme to all widgets recursively
+        self.apply_theme_to_all_widgets(self, new_theme, colors)
+        
+        # Update the transcription item themes separately as they need special handling
         self.update_transcription_item_themes()
         
-        # Update status text style
-        self.status_text.setStyleSheet(f"""
-            border: 1px solid {colors['border']};
-            border-radius: 8px;
-            background-color: {colors['bg_secondary']};
-            selection-background-color: {colors['accent']};
-            selection-color: white;
-            color: {colors['text_primary']};
-        """)
+        # Log the change
+        self.log_status(f"Switched to {new_theme} theme")
         
-        # Update theme for groupboxes
-        for group_box in self.findChildren(QGroupBox):
-            group_box.setStyleSheet(f"""
-                QGroupBox {{
-                    font-weight: bold;
+    def apply_theme_to_all_widgets(self, parent_widget, theme, colors):
+        """Recursively apply theme to all widgets"""
+        # Explicitly style key container widgets
+        self.centralWidget().setStyleSheet(f"background-color: {colors['bg_primary']};")
+        self.controls_container.setStyleSheet(f"background-color: {colors['bg_primary']};")
+        
+        # Process all child widgets
+        for child in parent_widget.findChildren(QWidget):
+            # Apply specific styling based on widget type
+            
+            # QLabel styling
+            if isinstance(child, QLabel):
+                # Check if it's the app title label (special styling)
+                if child.text() == "Voice Commander" and child.parent() == self.centralWidget():
+                    child.setStyleSheet(f"font-weight: bold; font-size: 16px; color: {colors['text_primary']}; background-color: {colors['bg_primary']};")
+                else:
+                    child.setStyleSheet(f"color: {colors['text_primary']}; background-color: {colors['bg_secondary']};")
+            
+            # QComboBox styling
+            elif isinstance(child, QComboBox):
+                child.setStyleSheet(f"""
+                    QComboBox {{
+                        border: 1px solid {colors['border']};
+                        border-radius: 6px;
+                        padding: 5px;
+                        background-color: {colors['bg_secondary']};
+                        color: {colors['text_primary']};
+                    }}
+                    QComboBox::drop-down {{
+                        border: none;
+                        width: 24px;
+                    }}
+                    QComboBox QAbstractItemView {{
+                        background-color: {colors['bg_secondary']};
+                        border: 1px solid {colors['border']};
+                        border-radius: 6px;
+                        selection-background-color: {colors['bg_accent']};
+                        selection-color: {colors['text_primary']};
+                    }}
+                """)
+            
+            # QGroupBox styling
+            elif isinstance(child, QGroupBox):
+                child.setStyleSheet(f"""
+                    QGroupBox {{
+                        font-weight: bold;
+                        border: 1px solid {colors['border']};
+                        border-radius: 8px;
+                        margin-top: 12px;
+                        background-color: {colors['bg_secondary']};
+                    }}
+                    QGroupBox::title {{
+                        subcontrol-origin: margin;
+                        left: 10px;
+                        padding: 0 5px;
+                        color: {colors['text_primary']};
+                    }}
+                """)
+            
+            # QTextEdit styling (like status text)
+            elif isinstance(child, QTextEdit):
+                child.setStyleSheet(f"""
                     border: 1px solid {colors['border']};
                     border-radius: 8px;
-                    margin-top: 12px;
                     background-color: {colors['bg_secondary']};
-                }}
-                QGroupBox::title {{
-                    subcontrol-origin: margin;
-                    left: 10px;
-                    padding: 0 5px;
+                    selection-background-color: {colors['accent']};
+                    selection-color: white;
                     color: {colors['text_primary']};
-                }}
-            """)
+                """)
+            
+            # QListWidget styling (chat display)
+            elif isinstance(child, QListWidget):
+                child.setStyleSheet(f"""
+                    QListWidget {{
+                        border: 1px solid {colors['border']};
+                        border-radius: 8px;
+                        background-color: {colors['bg_secondary']};
+                        alternate-background-color: {colors['bg_primary']};
+                        padding: 2px;
+                    }}
+                    QListWidget::item {{
+                        border-bottom: 1px solid {colors['border']};
+                        padding: 1px;
+                        border-radius: 6px;
+                    }}
+                    QListWidget::item:hover {{
+                        background-color: {colors['bg_accent']};
+                    }}
+                """)
+            
+            # General container QWidget styling
+            elif isinstance(child, QWidget) and not isinstance(child, QPushButton):
+                # Only style direct container widgets, not those that appear in layouts
+                if child.layout() is not None:
+                    # This is a container widget with a layout
+                    child.setStyleSheet(f"background-color: {colors['bg_primary']};")
+            
+            # Force update of the widget
+            child.style().unpolish(child)
+            child.style().polish(child)
+            child.update()
     
     def update_transcription_item_themes(self):
         """Update the theme for all transcription items in the chat display"""
@@ -617,23 +705,23 @@ class VoiceCommanderApp(QMainWindow):
         # Update recording button - only show active when recording
         is_recording = self.transcription_service.is_transcribing
         is_push_to_talk = self.transcription_service.is_push_to_talk_mode
-        self.record_button.setText("Recording" if is_recording else "Start Transcription")
+        self.record_button.setText("⏺️ Recording" if is_recording else "⏺️ Start Transcription")
         self.record_button.setStyleSheet(active_button_style if is_recording else inactive_button_style)
         # Disable the record button when push-to-talk is active
         self.record_button.setEnabled(not is_push_to_talk)
         
         # Update push to talk button
-        self.push_to_talk_button.setText("Stop Talking" if is_push_to_talk else "Push to Talk")
+        self.push_to_talk_button.setText("🎤 Stop Talking" if is_push_to_talk else "🎤 Push to Talk")
         self.push_to_talk_button.setStyleSheet(active_button_style if is_push_to_talk else inactive_button_style)
         
         # Update mute button
         is_muted = self.groq_service.mute_llm
-        self.mute_button.setText(f"AI Processing: {'Off' if is_muted else 'On'}")
+        self.mute_button.setText(f"🤖 AI Processing: {'Off' if is_muted else 'On'}")
         self.mute_button.setStyleSheet(inactive_button_style if is_muted else active_button_style)
         
         # Update paste button
         is_paste_on = self.groq_service.automatic_paste
-        self.paste_button.setText(f"Auto-Paste: {'On' if is_paste_on else 'Off'}")
+        self.paste_button.setText(f"📋 Auto-Paste: {'On' if is_paste_on else 'Off'}")
         self.paste_button.setStyleSheet(active_button_style if is_paste_on else inactive_button_style)
     
     def start_audio_processing(self):
@@ -665,6 +753,9 @@ class VoiceCommanderApp(QMainWindow):
     def on_llm_response(self, text):
         """Handle LLM response"""
         self.add_ai_response(text)
+        
+        # Save chat history after adding the AI response
+        self.save_chat_history()
     
     @pyqtSlot(str)
     def on_error(self, error_msg):
@@ -950,13 +1041,151 @@ class VoiceCommanderApp(QMainWindow):
                 
     def load_chat_history(self):
         """Load chat history from disk"""
-        # Implementation details in the full method
-        pass
+        try:
+            # Get the history save path from config
+            save_folder = config.CHAT_HISTORY_SAVE_FOLDER
+            
+            # Check if the folder exists
+            if not os.path.exists(save_folder):
+                os.makedirs(save_folder, exist_ok=True)
+                self.log_status(f"Created chat history folder: {save_folder}")
+                return
+                
+            # Create history filename
+            history_path = os.path.join(save_folder, "chat_history.json")
+            
+            # Check if the file exists
+            if not os.path.exists(history_path):
+                self.log_status("No previous chat history found.")
+                return
+            
+            # Verify file is not empty
+            if os.path.getsize(history_path) == 0:
+                self.log_status("Chat history file exists but is empty.")
+                return
+                
+            # Load the history file
+            try:
+                with open(history_path, 'r', encoding='utf-8') as f:
+                    chat_history = json.load(f)
+                    
+                # Verify it's a valid list
+                if not isinstance(chat_history, list):
+                    self.log_status("Invalid chat history format. Starting new chat.")
+                    return
+                
+                # Proceed only if we have valid history
+                if len(chat_history) > 0:
+                    # Clear current chat display
+                    self.chat_display.clear()
+                    
+                    # Add each chat item to the display
+                    for item in chat_history:
+                        if not isinstance(item, dict):
+                            continue
+                            
+                        item_type = item.get('type')
+                        if item_type == 'transcription':
+                            timestamp = item.get('timestamp', '')
+                            text = item.get('text', '')
+                            audio_path = item.get('audio_path')
+                            
+                            # Check if audio file exists
+                            if audio_path and not os.path.exists(audio_path):
+                                self.log_status(f"Warning: Audio file not found: {audio_path}")
+                                audio_path = None
+                                
+                            # Add transcription item
+                            self.add_transcription_item(timestamp, text, audio_path)
+                            
+                        elif item_type == 'ai_response':
+                            text = item.get('text', '')
+                            # Add AI response
+                            self.add_ai_response(text)
+                
+                    # Also initialize the groq service chat with history
+                    if hasattr(self.groq_service, 'InitializeChat'):
+                        self.groq_service.InitializeChat()
+                        
+                        # Add user messages and assistant messages to the groq service
+                        for item in chat_history:
+                            if not isinstance(item, dict):
+                                continue
+                                
+                            if item.get('type') == 'transcription':
+                                self.groq_service.AppendUserMessage(item.get('text', ''))
+                            elif item.get('type') == 'ai_response':
+                                self.groq_service.AppendAssistantMessage(item.get('text', ''))
+                
+                    # Log success
+                    self.log_status(f"Loaded {len(chat_history)} chat messages from history")
+            except json.JSONDecodeError:
+                self.log_status("Error decoding chat history file. Starting new chat.")
+                return
+                
+        except Exception as e:
+            self.log_status(f"Error loading chat history: {e}")
+            logger.error(f"Error loading chat history: {e}", exc_info=True)
     
     def save_chat_history(self):
         """Save the current chat history to disk"""
-        # Implementation details in the full method
-        pass
+        try:
+            # Skip if no chat display exists or it's empty
+            if not hasattr(self, 'chat_display') or self.chat_display.count() == 0:
+                return
+                
+            # Get the history save path from config
+            save_folder = config.CHAT_HISTORY_SAVE_FOLDER
+            # Ensure the folder exists
+            os.makedirs(save_folder, exist_ok=True)
+            
+            # Create history filename
+            history_path = os.path.join(save_folder, "chat_history.json")
+            
+            # Create a list to store chat items
+            chat_history = []
+            
+            # Iterate through all items in chat display
+            for i in range(self.chat_display.count()):
+                item = self.chat_display.item(i)
+                widget = self.chat_display.itemWidget(item)
+                
+                # Check if it's a transcription item
+                if hasattr(widget, 'getText') and callable(widget.getText):
+                    # It's a transcription item
+                    chat_item = {
+                        'type': 'transcription',
+                        'timestamp': widget.timestamp if hasattr(widget, 'timestamp') else '',
+                        'text': widget.getText(),
+                        'audio_path': widget.audio_path if hasattr(widget, 'audio_path') else None
+                    }
+                    chat_history.append(chat_item)
+                    
+                # Check if it's an AI response
+                elif isinstance(widget, QWidget) and widget.layout():
+                    # Look for a QLabel in the widget's layout
+                    for j in range(widget.layout().count()):
+                        child = widget.layout().itemAt(j).widget()
+                        if isinstance(child, QLabel):
+                            # Found an AI response label
+                            chat_item = {
+                                'type': 'ai_response',
+                                'text': child.text()
+                            }
+                            chat_history.append(chat_item)
+                            break
+            
+            # Save to file
+            with open(history_path, 'w', encoding='utf-8') as f:
+                json.dump(chat_history, f, ensure_ascii=False, indent=2)
+                
+            # Log status if verbose
+            if config.VERBOSE_OUTPUT:
+                self.log_status(f"Saved {len(chat_history)} chat messages to history")
+                
+        except Exception as e:
+            self.log_status(f"Error saving chat history: {e}")
+            logger.error(f"Error saving chat history: {e}", exc_info=True)
         
     def copy_to_clipboard(self, text):
         """Copy the given text to clipboard"""
