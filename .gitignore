@@ -7,3 +7,4 @@
 /dist
 /llm_sandbox
 /Voice_Commander.egg-info
+__pycache__
