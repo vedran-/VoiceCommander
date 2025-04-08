@@ -38,7 +38,11 @@ class GroqWhisperService:
 
 
     def __init__(self):
-        self.client = Groq(api_key=config.GROQ_API_KEY)
+        self._api_key = config.GROQ_API_KEY
+        self._model = config.LLM_MODEL
+        self._transcription_model = config.TRANSCRIPTION_MODEL
+        self._unfamiliar_words = config.UNFAMILIAR_WORDS
+        self.initialize_client()
         self._language = "en"  # Private attribute
         self.mute_llm = True
         self.automatic_paste = True
@@ -52,6 +56,65 @@ class GroqWhisperService:
         # Signal callbacks for UI interaction
         self.on_command_stop = None
         self.on_command_resume = None
+        self.on_command_reset = None
+
+    def initialize_client(self):
+        """Initialize the Groq client with the current API key"""
+        try:
+            self.client = Groq(api_key=self._api_key)
+            return True
+        except Exception as e:
+            print(f"Error initializing Groq client: {e}")
+            return False
+
+    @property
+    def api_key(self):
+        """Get the current API key"""
+        return self._api_key
+        
+    @api_key.setter
+    def api_key(self, value):
+        """Set the API key and reinitialize the client"""
+        if value != self._api_key:
+            self._api_key = value
+            self.initialize_client()
+            print(f"API key updated and client reinitialized")
+
+    @property
+    def model(self):
+        """Get the current LLM model"""
+        return self._model
+        
+    @model.setter
+    def model(self, value):
+        """Set the LLM model"""
+        if value != self._model:
+            self._model = value
+            print(f"LLM model updated to: {value}")
+
+    @property
+    def transcription_model(self):
+        """Get the current transcription model"""
+        return self._transcription_model
+        
+    @transcription_model.setter
+    def transcription_model(self, value):
+        """Set the transcription model"""
+        if value != self._transcription_model:
+            self._transcription_model = value
+            print(f"Transcription model updated to: {value}")
+            
+    @property
+    def unfamiliar_words(self):
+        """Get the current unfamiliar words"""
+        return self._unfamiliar_words
+        
+    @unfamiliar_words.setter
+    def unfamiliar_words(self, value):
+        """Set the unfamiliar words"""
+        if value != self._unfamiliar_words:
+            self._unfamiliar_words = value
+            print(f"Unfamiliar words updated")
 
     @property
     def language(self):
@@ -92,7 +155,7 @@ class GroqWhisperService:
             return False
 
     def InitializeChat(self):
-        print(f"Initializing chat... LLM: \033[33m{config.LLM_MODEL}\033[0m, transcription by: \033[33m{config.TRANSCRIPTION_MODEL}\033[0m")
+        print(f"Initializing chat... LLM: \033[33m{self._model}\033[0m, transcription by: \033[33m{self._transcription_model}\033[0m")
         self.messages = [
             {
                 "role": "system",
@@ -122,8 +185,8 @@ class GroqWhisperService:
         try:
             transcription = self.client.audio.transcriptions.create(
                 file=("instructions.wav", wav_data),
-                model=config.TRANSCRIPTION_MODEL,
-                prompt=config.UNFAMILIAR_WORDS,  # Optional
+                model=self._transcription_model,
+                prompt=self._unfamiliar_words,  # Optional
                 response_format="verbose_json",  # Optional
                 language=self.language,  # Optional
                 temperature=0.0  # Optional
@@ -503,31 +566,21 @@ class GroqWhisperService:
         return response
 
     def _call_groq_api(self, message):
-        """
-        Call the Groq API with the user message
-        
-        Args:
-            message: The message from the user
-            
-        Returns:
-            The response from the Groq API
-        """
+        print(f"Calling Groq API with message: {message}")
         try:
-            # Call the Groq API
-            chat_completion = self.client.chat.completions.create(
+            response = self.client.chat.completions.create(
+                model=self._model,
                 messages=self.messages,
-                model=config.LLM_MODEL,
-                temperature=0,
-                stream=False,
-                response_format={"type": "text"},
+                temperature=0.0,
+                max_tokens=1024,
+                top_p=1,
+                stream=False
             )
-            
-            # Get the response
-            response = chat_completion.choices[0].message.content.strip()
-            return response
+            reply_text = response.choices[0].message.content
+            return reply_text
         except Exception as e:
             print(f"Error calling Groq API: {e}")
-            return f"ERROR: Could not get response from API. {str(e)}"
+            return f"Error: {str(e)}"
 
     def set_command_callbacks(self, stop_callback=None, resume_callback=None, reset_callback=None):
         """Set callbacks for handling commands"""
