@@ -272,8 +272,6 @@ class VoiceCommanderApp(QMainWindow):
         
         # Add New Chat button to the conversation header
         self.reset_button = QPushButton("New Chat")
-        new_icon = ThemeManager.get_themed_icon("assets/new-icon.png", self.theme, 16)
-        self.reset_button.setIcon(new_icon)
         self.reset_button.setText("🔄 New Chat")  # Unicode refresh icon
         self.reset_button.clicked.connect(self.new_chat)
         self.reset_button.setStyleSheet(button_style)
@@ -349,8 +347,6 @@ class VoiceCommanderApp(QMainWindow):
         
         # Recording control button
         self.record_button = QPushButton(" Recording")
-        record_icon = ThemeManager.get_themed_icon("assets/record-icon.png", self.theme, 16)
-        self.record_button.setIcon(record_icon)
         self.record_button.setText("⏺️ Start Transcription")  # Unicode record icon
         self.record_button.clicked.connect(self.toggle_recording)
         self.record_button.setStyleSheet(inactive_button_style)  # Will be updated in update_ui_state()
@@ -358,8 +354,6 @@ class VoiceCommanderApp(QMainWindow):
         
         # Push to Talk button
         self.push_to_talk_button = QPushButton("Push to Talk")
-        mic_icon = ThemeManager.get_themed_icon("assets/mic-icon.png", self.theme, 16)
-        self.push_to_talk_button.setIcon(mic_icon)
         self.push_to_talk_button.setText("🎤 Push to Talk")  # Unicode microphone icon
         self.push_to_talk_button.clicked.connect(self.toggle_push_to_talk)
         self.push_to_talk_button.setStyleSheet(inactive_button_style)  # Will be updated in update_ui_state()
@@ -367,8 +361,6 @@ class VoiceCommanderApp(QMainWindow):
         
         # LLM processing toggle button
         self.mute_button = QPushButton("AI Processing: On")
-        ai_icon = ThemeManager.get_themed_icon("assets/ai-icon.png", self.theme, 16)
-        self.mute_button.setIcon(ai_icon)
         self.mute_button.setText("🤖 AI Processing: On")  # Unicode robot icon
         self.mute_button.clicked.connect(self.toggle_mute)
         self.mute_button.setStyleSheet(inactive_button_style)  # Will be updated in update_ui_state()
@@ -376,8 +368,6 @@ class VoiceCommanderApp(QMainWindow):
         
         # Automatic paste toggle button
         self.paste_button = QPushButton("Auto-Paste: On")
-        paste_icon = ThemeManager.get_themed_icon("assets/paste-icon.png", self.theme, 16)
-        self.paste_button.setIcon(paste_icon)
         self.paste_button.setText("📋 Auto-Paste: On")  # Unicode clipboard icon
         self.paste_button.clicked.connect(self.toggle_paste)
         self.paste_button.setStyleSheet(inactive_button_style)  # Will be updated in update_ui_state()
@@ -418,8 +408,6 @@ class VoiceCommanderApp(QMainWindow):
         
         # Add Settings button that opens the settings dialog
         self.settings_button = QPushButton("Settings")
-        settings_icon = ThemeManager.get_themed_icon("assets/settings-icon.png", self.theme, 16)
-        self.settings_button.setIcon(settings_icon)
         self.settings_button.setText("⚙️ Settings")  # Unicode gear icon
         self.settings_button.clicked.connect(self.open_settings_dialog)
         self.settings_button.setStyleSheet(button_style)
@@ -499,14 +487,6 @@ class VoiceCommanderApp(QMainWindow):
         # Update button styles in UI
         self.update_ui_state()
         
-        # Update icons for the new theme
-        self.record_button.setIcon(ThemeManager.get_themed_icon("assets/record-icon.png", new_theme, 16))
-        self.push_to_talk_button.setIcon(ThemeManager.get_themed_icon("assets/mic-icon.png", new_theme, 16))
-        self.mute_button.setIcon(ThemeManager.get_themed_icon("assets/ai-icon.png", new_theme, 16))
-        self.paste_button.setIcon(ThemeManager.get_themed_icon("assets/paste-icon.png", new_theme, 16))
-        self.reset_button.setIcon(ThemeManager.get_themed_icon("assets/new-icon.png", new_theme, 16))
-        self.settings_button.setIcon(ThemeManager.get_themed_icon("assets/settings-icon.png", new_theme, 16))
-        
         # Apply theme to all widgets recursively
         self.apply_theme_to_all_widgets(self, new_theme, colors)
         
@@ -528,11 +508,14 @@ class VoiceCommanderApp(QMainWindow):
             
             # QLabel styling
             if isinstance(child, QLabel):
-                # Check if it's the app title label (special styling)
+                # Check if it's the app title label or app icon (special styling with transparent background)
                 if child.text() == "Voice Commander" and child.parent() == self.centralWidget():
-                    child.setStyleSheet(f"font-weight: bold; font-size: 16px; color: {colors['text_primary']}; background-color: {colors['bg_primary']};")
+                    child.setStyleSheet(f"font-weight: bold; font-size: 16px; {ThemeManager.get_label_style(theme, is_transparent=True)}")
+                # Check if it's the app icon
+                elif not child.text() and child.pixmap() and child.parent() == self.centralWidget():
+                    child.setStyleSheet("background-color: transparent;")
                 else:
-                    child.setStyleSheet(f"color: {colors['text_primary']}; background-color: {colors['bg_secondary']};")
+                    child.setStyleSheet(ThemeManager.get_label_style(theme))
             
             # QComboBox styling
             elif isinstance(child, QComboBox):
@@ -1113,9 +1096,9 @@ class VoiceCommanderApp(QMainWindow):
                                 continue
                                 
                             if item.get('type') == 'transcription':
-                                self.groq_service.AppendUserMessage(item.get('text', ''))
+                                self.groq_service.AddUserMessage(item.get('text', ''))
                             elif item.get('type') == 'ai_response':
-                                self.groq_service.AppendAssistantMessage(item.get('text', ''))
+                                self.groq_service.AddAssistantMessage(item.get('text', ''))
                 
                     # Log success
                     self.log_status(f"Loaded {len(chat_history)} chat messages from history")
