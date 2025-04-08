@@ -201,6 +201,7 @@ class ThemeManager:
                 min-width: 24px; /* Reduced size */
                 max-width: 24px; /* Reduced size */
                 color: {colors["text_primary"]};
+                font-size: 14pt; /* Larger icon size */
                 /* TODO: Consider adding icon color setting if needed */
             }}
             QPushButton:hover {{

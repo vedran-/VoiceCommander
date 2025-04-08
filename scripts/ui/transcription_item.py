@@ -142,6 +142,7 @@ class TranscriptionListItem(QWidget):
                     max-height: 24px;
                     min-width: 24px;
                     max-width: 24px;
+                    font-size: 14pt; /* Larger icon size */
                 }}
                 QPushButton:hover {{
                      background-color: {ThemeManager._adjust_color(colors["accent"], -20 if self.theme == 'light' else 20)};
@@ -156,7 +157,7 @@ class TranscriptionListItem(QWidget):
             self.play_button.setToolTip("Stop playback")
             self.play_button.setStyleSheet(active_style)
         else:
-            # Revert to standard small button style
+            # Revert to standard small button style (already includes larger font size from Jill's change)
             self.play_button.setText("▶")  # Simple triangle play icon
             self.play_button.setToolTip("Play audio")
             self.play_button.setStyleSheet(styles["button_style"]) # Uses updated small button style from ThemeManager

@@ -274,7 +274,8 @@ class VoiceCommanderApp(QMainWindow):
         self.reset_button = QPushButton("New Chat")
         self.reset_button.setText("🔄 New Chat")  # Unicode refresh icon
         self.reset_button.clicked.connect(self.new_chat)
-        self.reset_button.setStyleSheet(button_style)
+        # Apply base style and add larger font size specifically for this button's icon
+        self.reset_button.setStyleSheet(button_style + " font-size: 14pt;")
         header_layout.addWidget(self.reset_button)
         
         # Add the header to the chat layout
