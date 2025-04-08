@@ -11,7 +11,7 @@ import pyperclip  # For clipboard operations
 from datetime import datetime
 from PyQt6.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QPushButton
 from PyQt6.QtWidgets import QTextEdit, QLabel, QComboBox, QSplitter, QGroupBox, QGridLayout, QScrollArea
-from PyQt6.QtWidgets import QListWidget, QListWidgetItem, QDialog, QDialogButtonBox  # Added QDialog and QDialogButtonBox
+from PyQt6.QtWidgets import QListWidget, QListWidgetItem, QDialog, QDialogButtonBox, QLineEdit  # Added QLineEdit
 from PyQt6.QtCore import Qt, QThread, pyqtSignal, pyqtSlot, QMetaObject, QTimer, QPoint, QSettings, QSize
 from PyQt6.QtGui import QColor, QTextCursor, QFont, QIcon, QPalette, QAction, QPixmap, QCloseEvent, QPainter, QBrush
 from functools import partial  # Added for creating button callbacks
@@ -96,6 +96,7 @@ class TranscriptionListItem(QWidget):
         self.text_label = QLabel()
         self.text_label.setWordWrap(True)
         self.text_label.setStyleSheet("color: #505a7a; font-size: 11pt; font-family: 'Segoe UI', sans-serif;")
+        self.text_label.setMinimumHeight(20)  # Set minimum height to prevent text cutting off
         main_layout.addWidget(self.text_label, 1)  # Add stretch factor of 1 to expand
         
         # Button container
@@ -239,16 +240,17 @@ class TranscriptionListItem(QWidget):
 class SettingsDialog(QDialog):
     """Dialog for application settings"""
     
-    def __init__(self, parent=None, settings_manager=None, keyboard_service=None, audio_service=None):
+    def __init__(self, parent=None, settings_manager=None, keyboard_service=None, audio_service=None, groq_service=None):
         super().__init__(parent)
         self.parent = parent
         self.settings_manager = settings_manager
         self.keyboard_service = keyboard_service
         self.audio_service = audio_service
+        self.groq_service = groq_service
         self.shortcut_buttons = {}
         
         self.setWindowTitle("Settings")
-        self.setMinimumWidth(500)
+        self.setMinimumWidth(600)
         self.setStyleSheet("""
             QDialog {
                 background-color: #f8f9fc;
@@ -266,6 +268,26 @@ class SettingsDialog(QDialog):
                 padding: 0 5px;
                 color: #505a7a;
             }
+            QLineEdit {
+                border: 1px solid #dee2ec;
+                border-radius: 6px;
+                padding: 8px;
+                background-color: #ffffff;
+                color: #505a7a;
+            }
+            QLineEdit:focus {
+                border: 1px solid #5b87f7;
+            }
+            QTextEdit {
+                border: 1px solid #dee2ec;
+                border-radius: 6px;
+                padding: 8px;
+                background-color: #ffffff;
+                color: #505a7a;
+            }
+            QTextEdit:focus {
+                border: 1px solid #5b87f7;
+            }
         """)
         
         self.setup_ui()
@@ -274,6 +296,86 @@ class SettingsDialog(QDialog):
         """Set up the settings dialog UI"""
         layout = QVBoxLayout(self)
         layout.setSpacing(15)
+        
+        # Create a scroll area to contain all settings
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setFrameShape(QScrollArea.Shape.NoFrame)
+        
+        # Create a widget to contain all the settings
+        scroll_content = QWidget()
+        scroll_layout = QVBoxLayout(scroll_content)
+        scroll_layout.setSpacing(15)
+        
+        # API Settings group
+        api_group = QGroupBox("API Settings")
+        api_layout = QGridLayout()
+        api_layout.setColumnStretch(1, 1)  # Make the second column stretchable
+        
+        # API Key
+        api_layout.addWidget(QLabel("Groq API Key:"), 0, 0)
+        self.api_key_input = QLineEdit()
+        self.api_key_input.setPlaceholderText("Enter your Groq API key")
+        # Get saved API key from settings or fallback to config
+        saved_api_key = self.settings_manager.get('groq_api_key', config.GROQ_API_KEY)
+        self.api_key_input.setText(saved_api_key)
+        # Connect signal to save immediately
+        self.api_key_input.textChanged.connect(self.save_api_key)
+        api_layout.addWidget(self.api_key_input, 0, 1)
+        
+        # LLM Model
+        api_layout.addWidget(QLabel("LLM Model:"), 1, 0)
+        self.llm_model_combo = QComboBox()
+        self.llm_model_combo.addItems([
+            "llama-3.3-70b-versatile",
+            "llama-3.1-8b",
+            "llama-3.1-70b",
+            "mixtral-8x7b",
+            "gemma-7b"
+        ])
+        # Get saved model from settings or fallback to config
+        saved_llm_model = self.settings_manager.get('llm_model', config.LLM_MODEL)
+        # Find index of saved model
+        model_index = self.llm_model_combo.findText(saved_llm_model)
+        if model_index >= 0:
+            self.llm_model_combo.setCurrentIndex(model_index)
+        # Connect signal to save immediately
+        self.llm_model_combo.currentTextChanged.connect(self.save_llm_model)
+        api_layout.addWidget(self.llm_model_combo, 1, 1)
+        
+        # Transcription Model
+        api_layout.addWidget(QLabel("Transcription Model:"), 2, 0)
+        self.transcription_model_combo = QComboBox()
+        self.transcription_model_combo.addItems([
+            "whisper-large-v3",
+            "whisper-medium",
+            "whisper-small",
+            "whisper-base"
+        ])
+        # Get saved model from settings or fallback to config
+        saved_transcription_model = self.settings_manager.get('transcription_model', config.TRANSCRIPTION_MODEL)
+        # Find index of saved model
+        model_index = self.transcription_model_combo.findText(saved_transcription_model)
+        if model_index >= 0:
+            self.transcription_model_combo.setCurrentIndex(model_index)
+        # Connect signal to save immediately
+        self.transcription_model_combo.currentTextChanged.connect(self.save_transcription_model)
+        api_layout.addWidget(self.transcription_model_combo, 2, 1)
+        
+        # Unfamiliar Words
+        api_layout.addWidget(QLabel("Unfamiliar Words:"), 3, 0, Qt.AlignmentFlag.AlignTop)
+        self.unfamiliar_words = QTextEdit()
+        self.unfamiliar_words.setPlaceholderText("Enter unfamiliar words that might appear in transcriptions")
+        self.unfamiliar_words.setMaximumHeight(100)  # Limit height
+        # Get saved unfamiliar words from settings or fallback to config
+        saved_unfamiliar_words = self.settings_manager.get('unfamiliar_words', config.UNFAMILIAR_WORDS)
+        self.unfamiliar_words.setText(saved_unfamiliar_words)
+        # Connect signal to save immediately
+        self.unfamiliar_words.textChanged.connect(self.save_unfamiliar_words)
+        api_layout.addWidget(self.unfamiliar_words, 3, 1)
+        
+        api_group.setLayout(api_layout)
+        scroll_layout.addWidget(api_group)
         
         # Microphone selection group
         mic_group = QGroupBox("Microphone")
@@ -291,9 +393,11 @@ class SettingsDialog(QDialog):
                 self.microphone_combo.setCurrentIndex(i)
                 break
                 
+        # Connect signal to update immediately
+        self.microphone_combo.currentIndexChanged.connect(self.microphone_changed)
         mic_layout.addWidget(self.microphone_combo)
         mic_group.setLayout(mic_layout)
-        layout.addWidget(mic_group)
+        scroll_layout.addWidget(mic_group)
         
         # Keyboard shortcuts group
         shortcuts_group = QGroupBox("Keyboard Shortcuts")
@@ -338,13 +442,76 @@ class SettingsDialog(QDialog):
             self.shortcut_buttons[action_name] = shortcut_btn
         
         shortcuts_group.setLayout(shortcuts_layout)
-        layout.addWidget(shortcuts_group)
+        scroll_layout.addWidget(shortcuts_group)
         
-        # Dialog buttons
-        button_box = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
-        button_box.accepted.connect(self.accept)
-        button_box.rejected.connect(self.reject)
-        layout.addWidget(button_box)
+        # Set the scroll content widget
+        scroll_area.setWidget(scroll_content)
+        layout.addWidget(scroll_area)
+        
+        # Close button
+        self.close_button = QPushButton("Close")
+        self.close_button.setStyleSheet("""
+            QPushButton {
+                min-width: 110px;
+                padding: 8px;
+                border-radius: 6px;
+                border: none;
+                background-color: #f1f3fa;
+                color: #505a7a;
+                font-weight: 600;
+            }
+            QPushButton:hover {
+                background-color: #e1e5ee;
+            }
+            QPushButton:pressed {
+                background-color: #d1d6e6;
+            }
+        """)
+        self.close_button.clicked.connect(self.accept)
+        
+        # Add button to a centered layout
+        button_layout = QHBoxLayout()
+        button_layout.addStretch(1)
+        button_layout.addWidget(self.close_button)
+        button_layout.addStretch(1)
+        layout.addLayout(button_layout)
+    
+    def save_api_key(self, text):
+        """Save API key to settings"""
+        self.settings_manager.set('groq_api_key', text)
+        # If groq_service is available, update it directly
+        if hasattr(self, 'groq_service') and self.groq_service:
+            self.groq_service.api_key = text
+    
+    def save_llm_model(self, model_name):
+        """Save LLM model to settings"""
+        self.settings_manager.set('llm_model', model_name)
+        # If groq_service is available, update it directly
+        if hasattr(self, 'groq_service') and self.groq_service:
+            self.groq_service.model = model_name
+    
+    def save_transcription_model(self, model_name):
+        """Save transcription model to settings"""
+        self.settings_manager.set('transcription_model', model_name)
+        # If groq_service is available, update it directly
+        if hasattr(self, 'groq_service') and self.groq_service:
+            self.groq_service.transcription_model = model_name
+    
+    def save_unfamiliar_words(self):
+        """Save unfamiliar words to settings"""
+        text = self.unfamiliar_words.toPlainText()
+        self.settings_manager.set('unfamiliar_words', text)
+        # If groq_service is available, update it directly
+        if hasattr(self, 'groq_service') and self.groq_service:
+            self.groq_service.unfamiliar_words = text
+    
+    def microphone_changed(self, index):
+        """Handle microphone selection change"""
+        if index >= 0:
+            mic_index = self.microphone_combo.itemData(index)
+            mic_name = self.microphone_combo.itemText(index)
+            self.settings_manager.set('microphone_index', mic_index)
+            self.settings_manager.set('microphone_name', mic_name)
     
     def populate_microphones(self):
         """Populate the microphone selection dropdown"""
@@ -658,6 +825,24 @@ class VoiceCommanderApp(QMainWindow):
         
         # Get a reference to the GroqWhisperService
         self.groq_service = self.transcription_service.groq_whisper_service
+        
+        # Apply API settings if they exist in settings
+        saved_api_key = self.settings_manager.get('groq_api_key', None)
+        if saved_api_key:
+            self.groq_service.api_key = saved_api_key
+        
+        saved_llm_model = self.settings_manager.get('llm_model', None)
+        if saved_llm_model:
+            self.groq_service.model = saved_llm_model
+        
+        saved_transcription_model = self.settings_manager.get('transcription_model', None)
+        if saved_transcription_model:
+            self.groq_service.transcription_model = saved_transcription_model
+        
+        # Apply unfamiliar words if they exist in settings
+        saved_unfamiliar_words = self.settings_manager.get('unfamiliar_words', None)
+        if saved_unfamiliar_words:
+            self.groq_service.unfamiliar_words = saved_unfamiliar_words
         
         # Initialize keyboard service
         self.keyboard_service = KeyboardService.KeyboardService(self.settings_manager)
@@ -1139,8 +1324,12 @@ class VoiceCommanderApp(QMainWindow):
         
         # Create a list item and set its size
         list_item = QListWidgetItem(self.chat_display)
-        # Use a fixed, smaller height for a leaner look
-        item_height = 40  # Increased from 32 to 40 to fix vertical centering
+        
+        # Calculate text height based on content length and width
+        # We need approximately 1 line per 40 characters with some buffer
+        text_lines = max(1, (len(text) // 40) + text.count('\n') + 1)
+        item_height = max(40, 20 + (text_lines * 20))  # Min height 40px, or calculated height
+        
         list_item.setSizeHint(QSize(self.chat_display.width(), item_height))
         
         # Add the widget to the list item
@@ -1163,18 +1352,21 @@ class VoiceCommanderApp(QMainWindow):
         label.setStyleSheet("""
             color: #505a7a; 
             background-color: #eef1fa; 
-            padding: 10px; 
+            padding: 12px; 
             border-radius: 8px; 
             font-size: 11pt;
             font-family: 'Segoe UI', sans-serif;
+            min-height: 20px;
         """)
         container_layout.addWidget(label)
         
         # Create a list item and set its size
         list_item = QListWidgetItem(self.chat_display)
-        # Adjust for multi-line text - calculate approximate height
-        text_lines = max(1, (len(text) // 40) + 1)  # Rough estimate of line count
-        item_height = 30 + (text_lines * 20)  # Base height + extra per line
+        
+        # Calculate height based on text content - more accurate calculation
+        text_lines = max(1, (len(text) // 40) + text.count('\n') + 1)
+        item_height = max(40, 20 + (text_lines * 20))  # Min height 40px, or calculated height
+        
         list_item.setSizeHint(QSize(self.chat_display.width(), item_height))
         
         # Add the widget to the list item
@@ -1422,7 +1614,8 @@ class VoiceCommanderApp(QMainWindow):
             self, 
             self.settings_manager, 
             self.keyboard_service,
-            self.audio_service
+            self.audio_service,
+            self.groq_service
         )
         
         # Show the dialog and wait for user to finish
