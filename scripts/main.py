@@ -43,6 +43,349 @@ logger = logging.getLogger('VoiceCommander')
 print("Voice Commander Qt v0.3.0\n")
 print("Starting the Qt-based Voice Commander application...")
 
+class ThemeManager:
+    """Manages application themes and provides styling"""
+    
+    # Light theme colors
+    LIGHT_THEME = {
+        "bg_primary": "#f8f9fc",
+        "bg_secondary": "#ffffff",
+        "bg_accent": "#eef1fa",
+        "text_primary": "#505a7a",
+        "text_secondary": "#8892b0",
+        "border": "#e1e5ee",
+        "accent": "#5b87f7",
+        "accent_hover": "#4a76e6",
+        "accent_pressed": "#3a65d5",
+        "success": "#10b981",
+        "warning": "#f59e0b",
+        "error": "#ef4444",
+        "inactive": "#f1f3fa",
+        "inactive_hover": "#e1e5ee",
+        "inactive_pressed": "#d1d6e6",
+        "scrollbar": "#f1f3fa",
+        "scrollbar_handle": "#cbd2e6",
+        "scrollbar_handle_hover": "#a8b3d2"
+    }
+    
+    # Dark theme colors - modern, sleek dark theme
+    DARK_THEME = {
+        "bg_primary": "#16161a",
+        "bg_secondary": "#242629",
+        "bg_accent": "#2e2f35",
+        "text_primary": "#fffffe",
+        "text_secondary": "#94a1b2",
+        "border": "#383a41",
+        "accent": "#7f5af0",
+        "accent_hover": "#6b47d9",
+        "accent_pressed": "#5a3ec4",
+        "success": "#2cb67d",
+        "warning": "#ff8906",
+        "error": "#f25042",
+        "inactive": "#2c2c34",
+        "inactive_hover": "#3e3e48",
+        "inactive_pressed": "#494952",
+        "scrollbar": "#242629",
+        "scrollbar_handle": "#383a41",
+        "scrollbar_handle_hover": "#4d4d57"
+    }
+    
+    @classmethod
+    def get_theme(cls, theme_name="light"):
+        """Get theme colors dictionary"""
+        return cls.DARK_THEME if theme_name.lower() == "dark" else cls.LIGHT_THEME
+    
+    @classmethod
+    def get_main_window_style(cls, theme):
+        """Get stylesheet for main window"""
+        colors = cls.get_theme(theme)
+        return f"""
+            QMainWindow {{
+                background-color: {colors["bg_primary"]};
+            }}
+            QWidget {{
+                font-family: 'Segoe UI', sans-serif;
+            }}
+            QGroupBox {{
+                font-weight: bold;
+                border: 1px solid {colors["border"]};
+                border-radius: 8px;
+                margin-top: 12px;
+                background-color: {colors["bg_secondary"]};
+            }}
+            QGroupBox::title {{
+                subcontrol-origin: margin;
+                left: 10px;
+                padding: 0 5px;
+                color: {colors["text_primary"]};
+            }}
+            QLabel {{
+                color: {colors["text_primary"]};
+            }}
+            QComboBox {{
+                border: 1px solid {colors["border"]};
+                border-radius: 6px;
+                padding: 5px;
+                background-color: {colors["bg_secondary"]};
+                color: {colors["text_primary"]};
+            }}
+            QComboBox::drop-down {{
+                border: none;
+                width: 24px;
+            }}
+            QComboBox QAbstractItemView {{
+                background-color: {colors["bg_secondary"]};
+                border: 1px solid {colors["border"]};
+                border-radius: 6px;
+                selection-background-color: {colors["bg_accent"]};
+                selection-color: {colors["text_primary"]};
+            }}
+            QScrollBar:vertical {{
+                border: none;
+                background: {colors["scrollbar"]};
+                width: 8px;
+                margin: 0px;
+            }}
+            QScrollBar::handle:vertical {{
+                background: {colors["scrollbar_handle"]};
+                border-radius: 4px;
+                min-height: 20px;
+            }}
+            QScrollBar::handle:vertical:hover {{
+                background: {colors["scrollbar_handle_hover"]};
+            }}
+            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{
+                border: none;
+                background: none;
+                height: 0px;
+            }}
+            QScrollBar:horizontal {{
+                border: none;
+                background: {colors["scrollbar"]};
+                height: 8px;
+                margin: 0px;
+            }}
+            QScrollBar::handle:horizontal {{
+                background: {colors["scrollbar_handle"]};
+                border-radius: 4px;
+                min-width: 20px;
+            }}
+            QScrollBar::handle:horizontal:hover {{
+                background: {colors["scrollbar_handle_hover"]};
+            }}
+            QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {{
+                border: none;
+                background: none;
+                width: 0px;
+            }}
+            QSplitter::handle {{
+                background-color: {colors["border"]};
+                height: 1px;
+            }}
+            QListWidget {{
+                border: 1px solid {colors["border"]};
+                border-radius: 8px;
+                background-color: {colors["bg_secondary"]};
+                alternate-background-color: {colors["bg_primary"]};
+            }}
+            QListWidget::item {{
+                border-bottom: 1px solid {colors["border"]};
+                padding: 3px;
+            }}
+            QListWidget::item:selected {{
+                background-color: {colors["bg_accent"]};
+                color: {colors["text_primary"]};
+            }}
+            QTextEdit {{
+                border: 1px solid {colors["border"]};
+                border-radius: 8px;
+                background-color: {colors["bg_secondary"]};
+                selection-background-color: {colors["accent"]};
+                selection-color: #ffffff;
+                color: {colors["text_primary"]};
+            }}
+        """
+    
+    @classmethod
+    def get_active_button_style(cls, theme):
+        """Get active button style"""
+        colors = cls.get_theme(theme)
+        return f"""
+            QPushButton {{
+                min-width: 110px;
+                min-height: 36px;
+                max-height: 36px;
+                padding: 8px;
+                border-radius: 6px;
+                border: none;
+                background-color: {colors["accent"]};
+                color: white;
+                font-weight: 600;
+            }}
+            QPushButton:hover {{
+                background-color: {colors["accent_hover"]};
+            }}
+            QPushButton:pressed {{
+                background-color: {colors["accent_pressed"]};
+                min-height: 36px;
+                max-height: 36px;
+            }}
+            QPushButton:disabled {{
+                background-color: {colors["inactive"]};
+                color: {colors["text_secondary"]};
+            }}
+        """
+    
+    @classmethod
+    def get_inactive_button_style(cls, theme):
+        """Get inactive button style"""
+        colors = cls.get_theme(theme)
+        return f"""
+            QPushButton {{
+                min-width: 110px;
+                min-height: 36px;
+                max-height: 36px;
+                padding: 8px;
+                border-radius: 6px;
+                border: none;
+                background-color: {colors["inactive"]};
+                color: {colors["text_primary"]};
+                font-weight: 600;
+            }}
+            QPushButton:hover {{
+                background-color: {colors["inactive_hover"]};
+            }}
+            QPushButton:pressed {{
+                background-color: {colors["inactive_pressed"]};
+                min-height: 36px;
+                max-height: 36px;
+            }}
+            QPushButton:disabled {{
+                background-color: {colors["inactive"]};
+                color: {colors["text_secondary"]};
+                opacity: 0.5;
+            }}
+        """
+    
+    @classmethod
+    def get_small_button_style(cls, theme):
+        """Get style for small buttons"""
+        colors = cls.get_theme(theme)
+        return f"""
+            QPushButton {{
+                background-color: {colors["inactive"]};
+                border: none;
+                border-radius: 4px;
+                padding: 2px;
+                min-height: 22px;
+                max-height: 22px;
+                min-width: 22px;
+                max-width: 22px;
+            }}
+            QPushButton:hover {{
+                background-color: {colors["inactive_hover"]};
+            }}
+            QPushButton:pressed {{
+                background-color: {colors["inactive_pressed"]};
+                min-height: 22px;
+                max-height: 22px;
+            }}
+            QPushButton:disabled {{
+                background-color: {colors["bg_secondary"]};
+                color: {colors["text_secondary"]};
+                opacity: 0.5;
+            }}
+        """
+    
+    @classmethod
+    def get_dialog_style(cls, theme):
+        """Get dialog style"""
+        colors = cls.get_theme(theme)
+        return f"""
+            QDialog {{
+                background-color: {colors["bg_primary"]};
+            }}
+            QGroupBox {{
+                font-weight: bold;
+                border: 1px solid {colors["border"]};
+                border-radius: 8px;
+                margin-top: 12px;
+                background-color: {colors["bg_secondary"]};
+            }}
+            QGroupBox::title {{
+                subcontrol-origin: margin;
+                left: 10px;
+                padding: 0 5px;
+                color: {colors["text_primary"]};
+            }}
+            QLineEdit {{
+                border: 1px solid {colors["border"]};
+                border-radius: 6px;
+                padding: 8px;
+                background-color: {colors["bg_secondary"]};
+                color: {colors["text_primary"]};
+            }}
+            QLineEdit:focus {{
+                border: 1px solid {colors["accent"]};
+            }}
+            QTextEdit {{
+                border: 1px solid {colors["border"]};
+                border-radius: 6px;
+                padding: 8px;
+                background-color: {colors["bg_secondary"]};
+                color: {colors["text_primary"]};
+            }}
+            QTextEdit:focus {{
+                border: 1px solid {colors["accent"]};
+            }}
+        """
+    
+    @classmethod
+    def get_transcription_item_styles(cls, theme):
+        """Get transcription item styles"""
+        colors = cls.get_theme(theme)
+        
+        # Normal small button style
+        small_button_style = cls.get_small_button_style(theme)
+        
+        # Playing button style (for the play button when playing)
+        playing_button_style = f"""
+            QPushButton {{
+                background-color: {colors["accent"]};
+                border: none;
+                border-radius: 4px;
+                padding: 2px;
+                min-height: 22px;
+                max-height: 22px;
+                min-width: 22px;
+                max-width: 22px;
+            }}
+            QPushButton:hover {{
+                background-color: {colors["accent_hover"]};
+            }}
+            QPushButton:pressed {{
+                background-color: {colors["accent_pressed"]};
+                min-height: 22px;
+                max-height: 22px;
+            }}
+        """
+        
+        return {
+            "button_style": small_button_style,
+            "playing_button_style": playing_button_style,
+            "timestamp_style": f"color: {colors['text_secondary']}; font-weight: 600; font-family: 'Segoe UI', sans-serif;",
+            "text_style": f"color: {colors['text_primary']}; font-size: 11pt; font-family: 'Segoe UI', sans-serif;",
+            "ai_response_style": f"""
+                color: {colors['text_primary']}; 
+                background-color: {colors['bg_accent']}; 
+                padding: 8px; 
+                border-radius: 8px; 
+                font-size: 11pt;
+                font-family: 'Segoe UI', sans-serif;
+                min-height: 16px;
+            """
+        }
+
 class AudioProcessingWorker(QThread):
     """
     Worker thread for processing audio
@@ -79,74 +422,52 @@ class AudioProcessingWorker(QThread):
 class TranscriptionListItem(QWidget):
     """Custom widget for displaying a transcription item in the list"""
     
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, theme="dark"):
         super().__init__(parent)
         self.audio_path = None
         self.is_playing = False
         self.sound = None
+        self.theme = theme
         self.setup_ui()
         
     def setup_ui(self):
         """Set up the UI components for this widget"""
-        # Main layout - horizontal
+        # Get theme styles
+        styles = ThemeManager.get_transcription_item_styles(self.theme)
+        
+        # Main layout - horizontal with gradient background
         main_layout = QHBoxLayout(self)
-        main_layout.setContentsMargins(8, 2, 8, 2)  # Further reduced vertical padding from 4px to 2px
-        main_layout.setSpacing(8)  # Keep the horizontal spacing
-        main_layout.setAlignment(Qt.AlignmentFlag.AlignVCenter)  # Ensure vertical centering
+        main_layout.setContentsMargins(8, 4, 8, 4)  # Reduced vertical padding for compact look
+        main_layout.setSpacing(8)
+        main_layout.setAlignment(Qt.AlignmentFlag.AlignVCenter)
         
         # Timestamp label with better styling
         self.timestamp_label = QLabel()
-        self.timestamp_label.setStyleSheet("color: #8892b0; font-weight: 600; font-family: 'Segoe UI', sans-serif;")
+        self.timestamp_label.setStyleSheet(styles["timestamp_style"])
         self.timestamp_label.setFixedWidth(80)
         main_layout.addWidget(self.timestamp_label)
         
         # Text content - expand horizontally with better styling
         self.text_label = QLabel()
         self.text_label.setWordWrap(True)
-        self.text_label.setStyleSheet("color: #505a7a; font-size: 11pt; font-family: 'Segoe UI', sans-serif;")
-        self.text_label.setMinimumHeight(16)  # Further reduced from 18px to 16px
+        self.text_label.setStyleSheet(styles["text_style"])
+        self.text_label.setMinimumHeight(16)
         # Set size policy to encourage vertical expansion for wrapped text
         self.text_label.setSizePolicy(QSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.MinimumExpanding))
         main_layout.addWidget(self.text_label, 1)  # Add stretch factor of 1 to expand
         
         # Button container
         button_layout = QHBoxLayout()
-        button_layout.setSpacing(4)  # Further reduced spacing from 6px to 4px
+        button_layout.setSpacing(4)
         button_layout.setAlignment(Qt.AlignmentFlag.AlignVCenter)
-        
-        # Button style (Smaller size)
-        button_style = """
-            QPushButton {
-                background-color: #f1f3fa;
-                border: none;
-                border-radius: 4px;
-                padding: 2px;
-                min-height: 22px;
-                max-height: 22px;
-                min-width: 22px;
-                max-width: 22px;
-            }
-            QPushButton:hover {
-                background-color: #e1e5ee;
-            }
-            QPushButton:pressed {
-                background-color: #d1d6e6;
-                min-height: 22px;
-                max-height: 22px;
-            }
-            QPushButton:disabled {
-                background-color: #f5f7fd;
-                color: #a8b3d2;
-            }
-        """
         
         # Copy button with icon
         self.copy_button = QPushButton()
         self.copy_button.setIcon(QIcon.fromTheme("edit-copy", QIcon("assets/copy-icon.png")))
         self.copy_button.setIconSize(QSize(14, 14))
         self.copy_button.setToolTip("Copy transcription to clipboard")
-        self.copy_button.setFixedSize(22, 22)  # Reduced from 26x26 to 22x22
-        self.copy_button.setStyleSheet(button_style)
+        self.copy_button.setFixedSize(22, 22)
+        self.copy_button.setStyleSheet(styles["button_style"])
         button_layout.addWidget(self.copy_button)
         
         # Play button with icon
@@ -154,8 +475,8 @@ class TranscriptionListItem(QWidget):
         self.play_button.setIcon(QIcon.fromTheme("media-playback-start", QIcon("assets/play-icon.png")))
         self.play_button.setIconSize(QSize(14, 14))
         self.play_button.setToolTip("Play audio")
-        self.play_button.setFixedSize(22, 22)  # Reduced from 26x26 to 22x22
-        self.play_button.setStyleSheet(button_style)
+        self.play_button.setFixedSize(22, 22)
+        self.play_button.setStyleSheet(styles["button_style"])
         self.play_button.setEnabled(False)  # Disabled by default until audio_path is set
         button_layout.addWidget(self.play_button)
         
@@ -164,8 +485,8 @@ class TranscriptionListItem(QWidget):
         self.transcribe_button.setIcon(QIcon.fromTheme("view-refresh", QIcon("assets/refresh-icon.png")))
         self.transcribe_button.setIconSize(QSize(14, 14))
         self.transcribe_button.setToolTip("Transcribe again")
-        self.transcribe_button.setFixedSize(22, 22)  # Reduced from 26x26 to 22x22
-        self.transcribe_button.setStyleSheet(button_style)
+        self.transcribe_button.setFixedSize(22, 22)
+        self.transcribe_button.setStyleSheet(styles["button_style"])
         self.transcribe_button.setEnabled(False)  # Disabled by default until audio_path is set
         button_layout.addWidget(self.transcribe_button)
         
@@ -192,59 +513,37 @@ class TranscriptionListItem(QWidget):
         """Update the displayed text"""
         self.text_label.setText(new_text)
         
+    def setTheme(self, theme):
+        """Update the widget's theme"""
+        self.theme = theme
+        styles = ThemeManager.get_transcription_item_styles(theme)
+        
+        # Update styles
+        self.timestamp_label.setStyleSheet(styles["timestamp_style"])
+        self.text_label.setStyleSheet(styles["text_style"])
+        
+        # Update button styles based on playing state
+        if self.is_playing:
+            self.play_button.setStyleSheet(styles["playing_button_style"])
+        else:
+            self.play_button.setStyleSheet(styles["button_style"])
+            
+        self.copy_button.setStyleSheet(styles["button_style"])
+        self.transcribe_button.setStyleSheet(styles["button_style"])
+        
     def setPlaying(self, is_playing):
         """Update the play button state"""
         self.is_playing = is_playing
+        styles = ThemeManager.get_transcription_item_styles(self.theme)
+        
         if is_playing:
             self.play_button.setIcon(QIcon.fromTheme("media-playback-stop", QIcon("assets/stop-icon.png")))
             self.play_button.setToolTip("Stop playback")
-            self.play_button.setStyleSheet("""
-                QPushButton {
-                    background-color: #f5e7ff;
-                    border: none;
-                    border-radius: 4px;
-                    padding: 2px;
-                    min-height: 22px;
-                    max-height: 22px;
-                    min-width: 22px;
-                    max-width: 22px;
-                }
-                QPushButton:hover {
-                    background-color: #ead6f5;
-                }
-                QPushButton:pressed {
-                    background-color: #dfc5eb;
-                    min-height: 22px;
-                    max-height: 22px;
-                }
-            """)
+            self.play_button.setStyleSheet(styles["playing_button_style"])
         else:
             self.play_button.setIcon(QIcon.fromTheme("media-playback-start", QIcon("assets/play-icon.png")))
             self.play_button.setToolTip("Play audio")
-            self.play_button.setStyleSheet("""
-                QPushButton {
-                    background-color: #f1f3fa;
-                    border: none;
-                    border-radius: 4px;
-                    padding: 2px;
-                    min-height: 22px;
-                    max-height: 22px;
-                    min-width: 22px;
-                    max-width: 22px;
-                }
-                QPushButton:hover {
-                    background-color: #e1e5ee;
-                }
-                QPushButton:pressed {
-                    background-color: #d1d6e6;
-                    min-height: 22px;
-                    max-height: 22px;
-                }
-                QPushButton:disabled {
-                    background-color: #f5f7fd;
-                    color: #a8b3d2;
-                }
-            """)
+            self.play_button.setStyleSheet(styles["button_style"])
         
     def stopPlayback(self):
         """Stop any active playback"""
@@ -265,51 +564,20 @@ class SettingsDialog(QDialog):
         self.groq_service = groq_service
         self.shortcut_buttons = {}
         
+        # Get the theme from settings
+        self.theme = self.settings_manager.get('ui_theme', config.UI_THEME)
+        
         self.setWindowTitle("Settings")
         self.setMinimumWidth(600)
-        self.setStyleSheet("""
-            QDialog {
-                background-color: #f8f9fc;
-            }
-            QGroupBox {
-                font-weight: bold;
-                border: 1px solid #e1e5ee;
-                border-radius: 8px;
-                margin-top: 12px;
-                background-color: #ffffff;
-            }
-            QGroupBox::title {
-                subcontrol-origin: margin;
-                left: 10px;
-                padding: 0 5px;
-                color: #505a7a;
-            }
-            QLineEdit {
-                border: 1px solid #dee2ec;
-                border-radius: 6px;
-                padding: 8px;
-                background-color: #ffffff;
-                color: #505a7a;
-            }
-            QLineEdit:focus {
-                border: 1px solid #5b87f7;
-            }
-            QTextEdit {
-                border: 1px solid #dee2ec;
-                border-radius: 6px;
-                padding: 8px;
-                background-color: #ffffff;
-                color: #505a7a;
-            }
-            QTextEdit:focus {
-                border: 1px solid #5b87f7;
-            }
-        """)
+        self.setStyleSheet(ThemeManager.get_dialog_style(self.theme))
         
         self.setup_ui()
         
     def setup_ui(self):
         """Set up the settings dialog UI"""
+        # Get theme colors
+        colors = ThemeManager.get_theme(self.theme)
+        
         layout = QVBoxLayout(self)
         layout.setSpacing(15)
         
@@ -322,6 +590,25 @@ class SettingsDialog(QDialog):
         scroll_content = QWidget()
         scroll_layout = QVBoxLayout(scroll_content)
         scroll_layout.setSpacing(15)
+        
+        # UI Theme group
+        theme_group = QGroupBox("UI Theme")
+        theme_layout = QHBoxLayout()
+        
+        theme_layout.addWidget(QLabel("Theme:"))
+        self.theme_combo = QComboBox()
+        self.theme_combo.addItems(["Light", "Dark"])
+        
+        # Set current theme
+        current_theme_index = 1 if self.theme.lower() == "dark" else 0
+        self.theme_combo.setCurrentIndex(current_theme_index)
+        
+        # Connect theme change signal
+        self.theme_combo.currentIndexChanged.connect(self.theme_changed)
+        theme_layout.addWidget(self.theme_combo)
+        
+        theme_group.setLayout(theme_layout)
+        scroll_layout.addWidget(theme_group)
         
         # API Settings group
         api_group = QGroupBox("API Settings")
@@ -432,7 +719,7 @@ class SettingsDialog(QDialog):
         for row, (action_name, display_name) in enumerate(shortcut_actions):
             # Create label with transparent background
             label = QLabel(display_name)
-            label.setStyleSheet("background: transparent; color: #505a7a;")
+            label.setStyleSheet(f"background: transparent; color: {colors['text_primary']};")
             shortcuts_layout.addWidget(label, row, 0)
             
             # Get the display string for the shortcut
@@ -442,6 +729,9 @@ class SettingsDialog(QDialog):
             shortcut_btn = QPushButton(button_text)
             shortcut_btn.setToolTip("Click to set a new shortcut key (Escape/Delete to clear)")
             shortcut_btn.setMinimumWidth(120)
+            
+            # Set button style
+            shortcut_btn.setStyleSheet(ThemeManager.get_inactive_button_style(self.theme))
             
             # Connect button to shortcut recording with the action name
             shortcut_btn.clicked.connect(lambda checked, action=action_name: self.start_shortcut_recording(action))
@@ -461,23 +751,7 @@ class SettingsDialog(QDialog):
         
         # Close button
         self.close_button = QPushButton("Close")
-        self.close_button.setStyleSheet("""
-            QPushButton {
-                min-width: 110px;
-                padding: 8px;
-                border-radius: 6px;
-                border: none;
-                background-color: #f1f3fa;
-                color: #505a7a;
-                font-weight: 600;
-            }
-            QPushButton:hover {
-                background-color: #e1e5ee;
-            }
-            QPushButton:pressed {
-                background-color: #d1d6e6;
-            }
-        """)
+        self.close_button.setStyleSheet(ThemeManager.get_inactive_button_style(self.theme))
         self.close_button.clicked.connect(self.accept)
         
         # Add button to a centered layout
@@ -487,6 +761,33 @@ class SettingsDialog(QDialog):
         button_layout.addStretch(1)
         layout.addLayout(button_layout)
     
+    def theme_changed(self, index):
+        """Handle theme change"""
+        theme_name = "dark" if index == 1 else "light"
+        
+        # Save to settings
+        self.settings_manager.set('ui_theme', theme_name)
+        
+        # Update dialog appearance
+        self.theme = theme_name
+        self.setStyleSheet(ThemeManager.get_dialog_style(theme_name))
+        
+        # Update button styles
+        colors = ThemeManager.get_theme(theme_name)
+        for btn in self.shortcut_buttons.values():
+            btn.setStyleSheet(ThemeManager.get_inactive_button_style(theme_name))
+            
+        self.close_button.setStyleSheet(ThemeManager.get_inactive_button_style(theme_name))
+        
+        # Update all labels' color
+        for label in self.findChildren(QLabel):
+            label.setStyleSheet(f"background: transparent; color: {colors['text_primary']};")
+        
+        # If we have a parent, notify it to update its theme too
+        if self.parent and hasattr(self.parent, 'change_theme'):
+            self.parent.change_theme(theme_name)
+    
+    # Rest of the methods remain the same
     def save_api_key(self, text):
         """Save API key to settings"""
         self.settings_manager.set('groq_api_key', text)
@@ -723,117 +1024,19 @@ class VoiceCommanderApp(QMainWindow):
     def __init__(self):
         super().__init__()
         
+        # Initialize settings manager before other services
+        self.settings_manager = SettingsManager.SettingsManager()
+        
+        # Get theme from settings
+        self.theme = self.settings_manager.get('ui_theme', config.UI_THEME)
+        
         # Set up the window
         self.setWindowTitle("Voice Commander")
         self.setGeometry(100, 100, 1200, 800)
         self.setWindowIcon(QIcon("assets/voice-commander.png"))
         
-        # Apply application-wide style
-        self.setStyleSheet("""
-            QMainWindow {
-                background-color: #f8f9fc;
-            }
-            QWidget {
-                font-family: 'Segoe UI', sans-serif;
-            }
-            QGroupBox {
-                font-weight: bold;
-                border: 1px solid #e1e5ee;
-                border-radius: 8px;
-                margin-top: 12px;
-                background-color: #ffffff;
-            }
-            QGroupBox::title {
-                subcontrol-origin: margin;
-                left: 10px;
-                padding: 0 5px;
-                color: #505a7a;
-            }
-            QLabel {
-                color: #505a7a;
-            }
-            QComboBox {
-                border: 1px solid #dee2ec;
-                border-radius: 6px;
-                padding: 5px;
-                background-color: #ffffff;
-                color: #505a7a;
-            }
-            QComboBox::drop-down {
-                border: none;
-                width: 24px;
-            }
-            QComboBox QAbstractItemView {
-                background-color: #ffffff;
-                border: 1px solid #dee2ec;
-                border-radius: 6px;
-                selection-background-color: #f1f3fa;
-                selection-color: #505a7a;
-            }
-            QScrollBar:vertical {
-                border: none;
-                background: #f1f3fa;
-                width: 8px;
-                margin: 0px;
-            }
-            QScrollBar::handle:vertical {
-                background: #cbd2e6;
-                border-radius: 4px;
-                min-height: 20px;
-            }
-            QScrollBar::handle:vertical:hover {
-                background: #a8b3d2;
-            }
-            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
-                border: none;
-                background: none;
-                height: 0px;
-            }
-            QScrollBar:horizontal {
-                border: none;
-                background: #f1f3fa;
-                height: 8px;
-                margin: 0px;
-            }
-            QScrollBar::handle:horizontal {
-                background: #cbd2e6;
-                border-radius: 4px;
-                min-width: 20px;
-            }
-            QScrollBar::handle:horizontal:hover {
-                background: #a8b3d2;
-            }
-            QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {
-                border: none;
-                background: none;
-                width: 0px;
-            }
-            QSplitter::handle {
-                background-color: #e1e5ee;
-                height: 1px;
-            }
-            QListWidget {
-                border: 1px solid #e1e5ee;
-                border-radius: 8px;
-                background-color: #ffffff;
-                alternate-background-color: #f8f9fc;
-            }
-            QListWidget::item {
-                border-bottom: 1px solid #f1f3fa;
-                padding: 3px;
-            }
-            QListWidget::item:selected {
-                background-color: #eef1fa;
-                color: #505a7a;
-            }
-            QTextEdit {
-                border: 1px solid #e1e5ee;
-                border-radius: 8px;
-                background-color: #ffffff;
-                selection-background-color: #d7dffa;
-                color: #505a7a;
-            }
-        """)
+        # Apply theme-based style
+        self.setStyleSheet(ThemeManager.get_main_window_style(self.theme))
         
         # Initialize attributes
         self.audio_service = None
@@ -843,7 +1046,6 @@ class VoiceCommanderApp(QMainWindow):
         self.chat_display = None
         self.audio_worker = None
         self.groq_service = None
-        self.settings_manager = SettingsManager.SettingsManager()
         self.keyboard_service = None
         self.shortcut_buttons = {}  # Dictionary to store shortcut buttons
         
@@ -989,14 +1191,17 @@ class VoiceCommanderApp(QMainWindow):
         self.setWindowTitle("Voice Commander")
         self.setMinimumSize(800, 600)
         
+        # Get theme colors
+        colors = ThemeManager.get_theme(self.theme)
+        
         # Create central widget
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
         
         # Main layout
         main_layout = QVBoxLayout(central_widget)
-        main_layout.setContentsMargins(12, 12, 12, 12)  # Increased margins for better spacing
-        main_layout.setSpacing(8)  # Adjusted spacing
+        main_layout.setContentsMargins(12, 12, 12, 12)
+        main_layout.setSpacing(8)
         
         # Create a splitter for resizable sections
         splitter = QSplitter(Qt.Orientation.Vertical)
@@ -1008,33 +1213,32 @@ class VoiceCommanderApp(QMainWindow):
         chat_layout = QVBoxLayout(chat_container)
         chat_layout.setContentsMargins(0, 0, 0, 0)  # Remove margins
         
-        # Conversation header with Reset button
+        # Conversation header with control buttons
         header_layout = QHBoxLayout()
-        chat_label = QLabel("Conversation")
-        chat_label.setStyleSheet("font-weight: bold; font-size: 14px; color: #505a7a;")
+        
+        # Add app logo/icon to the header
+        app_icon = QLabel()
+        pixmap = QPixmap("assets/voice-commander.png").scaled(24, 24, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
+        app_icon.setPixmap(pixmap)
+        header_layout.addWidget(app_icon)
+        
+        # Add title with larger, bolder font
+        chat_label = QLabel("Voice Commander")
+        chat_label.setStyleSheet(f"font-weight: bold; font-size: 16px; color: {colors['text_primary']};")
         header_layout.addWidget(chat_label)
         
-        # Define button style with modern look
-        button_style = """
-            QPushButton {
-                min-width: 110px;
-                padding: 8px;
-                border-radius: 6px;
-                border: none;
-                background-color: #f1f3fa;
-                color: #505a7a;
-                font-weight: 600;
-            }
-            QPushButton:hover {
-                background-color: #e1e5ee;
-            }
-            QPushButton:pressed {
-                background-color: #d1d6e6;
-            }
-        """
+        # Get button style
+        button_style = ThemeManager.get_inactive_button_style(self.theme)
         
-        # Push Reset Chat button to the right side
+        # Push buttons to the right side
         header_layout.addStretch(1)
+        
+        # Add theme toggle button
+        self.theme_button = QPushButton("Toggle Theme")
+        self.theme_button.setIcon(QIcon.fromTheme("preferences-desktop-theme", QIcon("assets/theme-icon.png")))
+        self.theme_button.clicked.connect(self.toggle_theme)
+        self.theme_button.setStyleSheet(button_style)
+        header_layout.addWidget(self.theme_button)
         
         # Add New Chat button to the conversation header
         self.reset_button = QPushButton("New Chat")
@@ -1048,27 +1252,27 @@ class VoiceCommanderApp(QMainWindow):
         
         # Replace QTextEdit with QListWidget for transcriptions
         self.chat_display = QListWidget()
-        self.chat_display.setAlternatingRowColors(True)  # Add alternating row colors
-        self.chat_display.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)  # Disable horizontal scrollbar
-        self.chat_display.setStyleSheet("""
-            QListWidget {
-                border: 1px solid #e1e5ee;
+        self.chat_display.setAlternatingRowColors(True)
+        self.chat_display.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.chat_display.setStyleSheet(f"""
+            QListWidget {{
+                border: 1px solid {colors['border']};
                 border-radius: 8px;
-                background-color: #ffffff;
-                alternate-background-color: #f8f9fc;
+                background-color: {colors['bg_secondary']};
+                alternate-background-color: {colors['bg_primary']};
                 padding: 2px;
-            }
-            QListWidget::item {
-                border-bottom: 1px solid #f1f3fa;
+            }}
+            QListWidget::item {{
+                border-bottom: 1px solid {colors['border']};
                 padding: 1px;
                 border-radius: 6px;
-            }
-            QListWidget::item:hover {
-                background-color: #f5f7fd;
-            }
+            }}
+            QListWidget::item:hover {{
+                background-color: {colors['bg_accent']};
+            }}
         """)
         self.chat_display.setFont(QFont("Segoe UI", 11))
-        self.chat_display.setSpacing(0)  # Reduced spacing between items from 1px to 0px
+        self.chat_display.setSpacing(0)
         self.chat_display.setWordWrap(True)
         chat_layout.addWidget(self.chat_display)
         
@@ -1076,86 +1280,36 @@ class VoiceCommanderApp(QMainWindow):
         
         # Controls area
         controls_container = QWidget()
-        controls_container.setStyleSheet("background-color: #f8f9fc;")
+        controls_container.setStyleSheet(f"background-color: {colors['bg_primary']};")
         controls_layout = QVBoxLayout(controls_container)
-        controls_layout.setSpacing(10)  # Increased spacing between group boxes
-        controls_layout.setContentsMargins(0, 0, 0, 0)  # Remove container margins
+        controls_layout.setSpacing(10)
+        controls_layout.setContentsMargins(0, 0, 0, 0)
+        
+        # Define active and inactive button styles from ThemeManager
+        active_button_style = ThemeManager.get_active_button_style(self.theme)
+        inactive_button_style = ThemeManager.get_inactive_button_style(self.theme)
         
         # Group the controls in a grid layout
         controls_group = QGroupBox("Controls")
-        controls_group.setStyleSheet("""
-            QGroupBox {
+        controls_group.setStyleSheet(f"""
+            QGroupBox {{
                 font-weight: bold;
-                border: 1px solid #e1e5ee;
+                border: 1px solid {colors['border']};
                 border-radius: 8px;
                 margin-top: 12px;
-                background-color: #ffffff;
-            }
-            QGroupBox::title {
+                background-color: {colors['bg_secondary']};
+            }}
+            QGroupBox::title {{
                 subcontrol-origin: margin;
                 left: 10px;
                 padding: 0 5px;
-                color: #505a7a;
-            }
+                color: {colors['text_primary']};
+            }}
         """)
         controls_grid = QGridLayout()
         controls_grid.setVerticalSpacing(15)
         controls_grid.setHorizontalSpacing(15)
-        controls_grid.setContentsMargins(15, 15, 15, 15)  # Increased padding inside group box
-        
-        # Define active button style (blue)
-        active_button_style = """
-            QPushButton {
-                min-width: 110px;
-                min-height: 36px;
-                max-height: 36px;
-                padding: 8px;
-                border-radius: 6px;
-                border: none;
-                background-color: #5b87f7;
-                color: white;
-                font-weight: 600;
-            }
-            QPushButton:hover {
-                background-color: #4a76e6;
-            }
-            QPushButton:pressed {
-                background-color: #3a65d5;
-                min-height: 36px;
-                max-height: 36px;
-            }
-            QPushButton:disabled {
-                background-color: #d1d6e6;
-                color: #9aa3bc;
-            }
-        """
-        
-        # Inactive button style
-        inactive_button_style = """
-            QPushButton {
-                min-width: 110px;
-                min-height: 36px;
-                max-height: 36px;
-                padding: 8px;
-                border-radius: 6px;
-                border: none;
-                background-color: #f1f3fa;
-                color: #505a7a;
-                font-weight: 600;
-            }
-            QPushButton:hover {
-                background-color: #e1e5ee;
-            }
-            QPushButton:pressed {
-                background-color: #d1d6e6;
-                min-height: 36px;
-                max-height: 36px;
-            }
-            QPushButton:disabled {
-                background-color: #f5f7fd;
-                color: #a8b3d2;
-            }
-        """
+        controls_grid.setContentsMargins(15, 15, 15, 15)
         
         # Row 1: Recording, AI and Paste buttons
         button_layout = QHBoxLayout()
@@ -1239,9 +1393,23 @@ class VoiceCommanderApp(QMainWindow):
         
         # Status area
         status_group = QGroupBox("Status")
-        status_group.setStyleSheet("QGroupBox { padding-top: 15px; margin-top: 5px; }")
+        status_group.setStyleSheet(f"""
+            QGroupBox {{ 
+                padding-top: 15px; 
+                margin-top: 5px; 
+                background-color: {colors['bg_secondary']};
+                border: 1px solid {colors['border']};
+                border-radius: 8px;
+            }}
+            QGroupBox::title {{
+                subcontrol-origin: margin;
+                left: 10px;
+                padding: 0 5px;
+                color: {colors['text_primary']};
+            }}
+        """)
         status_layout = QVBoxLayout()
-        status_layout.setContentsMargins(10, 5, 10, 5)  # Reduce padding inside group box
+        status_layout.setContentsMargins(10, 5, 10, 5)
         
         self.status_text = QTextEdit()
         self.status_text.setReadOnly(True)
@@ -1995,6 +2163,97 @@ class VoiceCommanderApp(QMainWindow):
         # Show error in status bar for a short time
         if hasattr(self, 'statusBar'):
             self.statusBar().showMessage(f"Keyboard error: {error_msg}", 5000)
+
+    def toggle_theme(self):
+        """Toggle between light and dark themes"""
+        # Toggle theme
+        new_theme = "light" if self.theme == "dark" else "dark"
+        self.change_theme(new_theme)
+        
+        # Log the change
+        self.log_status(f"Switched to {new_theme} theme")
+    
+    def change_theme(self, new_theme):
+        """Change the application theme"""
+        # Save theme to settings
+        self.settings_manager.set('ui_theme', new_theme)
+        self.theme = new_theme
+        
+        # Apply new theme to main window
+        self.setStyleSheet(ThemeManager.get_main_window_style(new_theme))
+        
+        # Update button styles in UI
+        self.update_ui_state()
+        
+        # Update the chat display style
+        colors = ThemeManager.get_theme(new_theme)
+        self.chat_display.setStyleSheet(f"""
+            QListWidget {{
+                border: 1px solid {colors['border']};
+                border-radius: 8px;
+                background-color: {colors['bg_secondary']};
+                alternate-background-color: {colors['bg_primary']};
+                padding: 2px;
+            }}
+            QListWidget::item {{
+                border-bottom: 1px solid {colors['border']};
+                padding: 1px;
+                border-radius: 6px;
+            }}
+            QListWidget::item:hover {{
+                background-color: {colors['bg_accent']};
+            }}
+        """)
+        
+        # Update theme for all transcription items
+        self.update_transcription_item_themes()
+        
+        # Update status text style
+        self.status_text.setStyleSheet(f"""
+            border: 1px solid {colors['border']};
+            border-radius: 8px;
+            background-color: {colors['bg_secondary']};
+            selection-background-color: {colors['accent']};
+            selection-color: white;
+            color: {colors['text_primary']};
+        """)
+        
+        # Update theme for groupboxes
+        for group_box in self.findChildren(QGroupBox):
+            group_box.setStyleSheet(f"""
+                QGroupBox {{
+                    font-weight: bold;
+                    border: 1px solid {colors['border']};
+                    border-radius: 8px;
+                    margin-top: 12px;
+                    background-color: {colors['bg_secondary']};
+                }}
+                QGroupBox::title {{
+                    subcontrol-origin: margin;
+                    left: 10px;
+                    padding: 0 5px;
+                    color: {colors['text_primary']};
+                }}
+            """)
+    
+    def update_transcription_item_themes(self):
+        """Update the theme for all transcription items in the chat display"""
+        for i in range(self.chat_display.count()):
+            item = self.chat_display.item(i)
+            widget = self.chat_display.itemWidget(item)
+            
+            # Update TranscriptionListItem widgets
+            if hasattr(widget, 'setTheme'):
+                widget.setTheme(self.theme)
+            
+            # Update AI response container widgets
+            elif isinstance(widget, QWidget) and widget.layout():
+                for j in range(widget.layout().count()):
+                    child = widget.layout().itemAt(j).widget()
+                    if isinstance(child, QLabel):
+                        # This is an AI response, update its style
+                        styles = ThemeManager.get_transcription_item_styles(self.theme)
+                        child.setStyleSheet(styles["ai_response_style"])
 
 def main():
     """Main entry point for the Qt application"""
