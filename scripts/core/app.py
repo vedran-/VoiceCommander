@@ -790,72 +790,75 @@ class VoiceCommanderApp(QMainWindow):
         self.status_text.ensureCursorVisible()
         
     def add_transcription_item(self, timestamp, text, audio_path):
-        """Add a user transcription as a custom list item"""
-        # Create the custom widget
-        item_widget = TranscriptionListItem()
+        """Adds a new transcription item (user message) to the chat display"""
+        # Create a custom widget for the transcription item, passing theme and is_ai=False
+        item_widget = TranscriptionListItem(theme=self.theme, is_ai=False)
         item_widget.setData(timestamp, text, audio_path)
-        
-        # Connect button signals
-        # Connect copy button signal
-        item_widget.copy_button.clicked.connect(
-            lambda: self.copy_to_clipboard(text)
-        )
-        
-        if audio_path:
-            # Important: Use lambda instead of partial to ensure we get the current state
-            item_widget.play_button.clicked.connect(
-                lambda: self.play_audio(audio_path, item_widget)
-            )
-            item_widget.transcribe_button.clicked.connect(
-                lambda: self.retranscribe_audio(audio_path, item_widget)
-            )
-        
-        # Create a list item and set its size
+
+        # Connect buttons
+        item_widget.copy_button.clicked.connect(lambda _, t=text: self.copy_to_clipboard(t))
+        item_widget.play_button.clicked.connect(lambda _, p=audio_path, w=item_widget: self.play_audio(p, w))
+        item_widget.transcribe_button.clicked.connect(lambda _, p=audio_path, w=item_widget: self.retranscribe_audio(p, w))
+
+        # Create a QListWidgetItem to hold the custom widget
         list_item = QListWidgetItem(self.chat_display)
-        
-        # Add the widget to the list item
+        list_item.setSizeHint(item_widget.sizeHint()) # Use sizeHint for proper layout
+        # Store the item widget and audio path in the list item for later access
+        list_item.setData(Qt.ItemDataRole.UserRole, {'widget': item_widget, 'audio_path': audio_path})
+
+        # Add the item to the list and set the custom widget
         self.chat_display.addItem(list_item)
         self.chat_display.setItemWidget(list_item, item_widget)
-        # Explicitly set the item hint based on the widget's calculated hint
-        list_item.setSizeHint(item_widget.sizeHint())
+
+        # Scroll to the bottom to show the latest message
+        self.chat_display.scrollToBottom()
+
+        # Log the transcription
+        logger.info(f"User: {text}")
         
-        # Scroll to the new item
-        self.chat_display.scrollToItem(list_item)
-    
+        # Update the UI state if needed
+        self.update_ui_state()
+        
+        # Removed call to self.update_transcription_item_themes() - style applied on creation
+
     def add_ai_response(self, text):
-        """Add an AI response message to the chat display"""
-        # Create a container widget for the AI response
-        container = QWidget()
-        container_layout = QVBoxLayout(container)
-        container_layout.setContentsMargins(8, 4, 8, 4)  # Further reduced vertical padding from 6px to 4px
+        """Adds an AI response message to the chat display"""
+        if not text or text.strip() == "":
+            logger.warning("Attempted to add an empty AI response.")
+            return
+            
+        # Timestamp for AI message
+        timestamp = datetime.now().strftime("%H:%M:%S")
         
-        # Create a QLabel for the AI response with better styling
-        label = QLabel(text)
-        label.setWordWrap(True)
-        label.setStyleSheet("""
-            color: #505a7a; 
-            background-color: #eef1fa; 
-            padding: 8px; 
-            border-radius: 8px; 
-            font-size: 11pt;
-            font-family: 'Segoe UI', sans-serif;
-            min-height: 16px;
-        """)
-        # Set size policy to encourage vertical expansion for wrapped text
-        label.setSizePolicy(QSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.MinimumExpanding))
-        container_layout.addWidget(label)
+        # Create a custom widget for the AI response, passing theme and is_ai=True
+        item_widget = TranscriptionListItem(theme=self.theme, is_ai=True)
+        item_widget.setData(timestamp, text, None) # AI responses don't have audio
         
-        # Create a list item and set its size
+        # Only connect copy button for AI responses
+        item_widget.copy_button.clicked.connect(lambda _, t=text: self.copy_to_clipboard(t))
+        
+        # Disable play and transcribe buttons for AI responses
+        item_widget.play_button.setVisible(False)
+        item_widget.transcribe_button.setVisible(False)
+        item_widget.timestamp_label.setText(f"{timestamp} < AI") # Indicate AI source
+        
+        # Create a QListWidgetItem
         list_item = QListWidgetItem(self.chat_display)
+        list_item.setSizeHint(item_widget.sizeHint()) # Use sizeHint
+        # Store the item widget (no audio path for AI)
+        list_item.setData(Qt.ItemDataRole.UserRole, {'widget': item_widget, 'audio_path': None})
         
-        # Add the widget to the list item
+        # Add the item to the list and set the custom widget
         self.chat_display.addItem(list_item)
-        self.chat_display.setItemWidget(list_item, container)
-        # Explicitly set the item hint based on the widget's calculated hint
-        list_item.setSizeHint(container.sizeHint())
+        self.chat_display.setItemWidget(list_item, item_widget)
         
-        # Scroll to the new item
-        self.chat_display.scrollToItem(list_item)
+        # Scroll to the bottom
+        self.chat_display.scrollToBottom()
+        
+        # Log the AI response
+        logger.info(f"AI: {text}")
+        
+        # Removed call to self.update_transcription_item_themes() - style applied on creation
 
     def _clear_chat_display(self):
         """Slot for clearing the chat display in the UI thread"""
@@ -1118,7 +1121,7 @@ class VoiceCommanderApp(QMainWindow):
                             if item.get('type') == 'transcription':
                                 self.groq_service.AddUserMessage(item.get('text', ''))
                             elif item.get('type') == 'ai_response':
-                                self.groq_service.AddAssistantMessage(item.get('text', ''))
+                                self.add_ai_response(item.get('text', ''))
                 
                     # Log success
                     self.log_status(f"Loaded {len(chat_history)} chat messages from history")

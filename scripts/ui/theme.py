@@ -234,57 +234,15 @@ class ThemeManager:
                 color: {colors["text_primary"]}; /* Ensure default text color */
             }}
             /* Apply consistent GroupBox style */
-            QGroupBox {{
-                font-weight: bold;
-                border: 1px solid {colors["border"]};
-                border-radius: 8px;
-                margin-top: 12px;
-                background-color: {colors["bg_primary"]}; /* Use primary bg */
-            }}
-            QGroupBox::title {{
-                subcontrol-origin: margin;
-                left: 10px;
-                padding: 0 5px;
-                color: {colors["text_primary"]};
-                background-color: {colors["bg_primary"]}; /* Match GroupBox bg */
-                border-radius: 4px;
-            }}
+            /* QGroupBox styling removed as it's overridden in SettingsDialog.apply_theme */
             /* Apply consistent LineEdit style */
-            QLineEdit {{
-                border: 1px solid {colors["border"]};
-                border-radius: 6px;
-                padding: 8px;
-                background-color: {colors["bg_primary"]}; /* Use primary bg */
-                color: {colors["text_primary"]};
-                selection-background-color: {colors["accent"]};
-                selection-color: {selection_text_color_input}; /* Ensure contrast */
-            }}
-            QLineEdit:focus {{
-                border: 1px solid {colors["accent"]}; /* Highlight focus with accent */
-            }}
+            /* QLineEdit styling removed as it's overridden in SettingsDialog.apply_theme */
             /* Apply consistent TextEdit style */
-            QTextEdit {{
-                border: 1px solid {colors["border"]};
-                border-radius: 6px;
-                padding: 8px;
-                background-color: {colors["bg_primary"]}; /* Use primary bg */
-                color: {colors["text_primary"]};
-                selection-background-color: {colors["accent"]};
-                selection-color: {selection_text_color_input}; /* Ensure contrast */
-            }}
-            QTextEdit:focus {{
-                border: 1px solid {colors["accent"]}; /* Highlight focus with accent */
-            }}
+            /* QTextEdit styling removed as it's overridden in SettingsDialog.apply_theme */
             /* Add default Label style for dialogs */
-            QLabel {{
-                 color: {colors["text_primary"]};
-                 background-color: transparent; /* Labels should generally be transparent */
-            }}
+            /* QLabel styling removed as it's overridden in SettingsDialog.apply_theme */
             /* Style buttons within dialogs consistently */
-            QPushButton {{
-                 /* Apply inactive style by default - dialogs can override specific buttons */
-                 {cls.get_inactive_button_style(theme)}
-            }}
+            /* QPushButton styling removed as it's overridden in SettingsDialog.apply_theme */
         """
     
     @classmethod

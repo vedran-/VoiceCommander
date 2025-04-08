@@ -7,12 +7,13 @@ from .theme import ThemeManager
 class TranscriptionListItem(QWidget):
     """Custom widget for displaying a transcription item in the list"""
     
-    def __init__(self, parent=None, theme="dark"):
+    def __init__(self, parent=None, theme="dark", is_ai=False):
         super().__init__(parent)
         self.audio_path = None
         self.is_playing = False
         self.sound = None
         self.theme = theme
+        self.is_ai = is_ai
         self.setup_ui()
         
     def setup_ui(self):
@@ -37,7 +38,8 @@ class TranscriptionListItem(QWidget):
         # Text content - expand horizontally using user bubble style
         self.text_label = QLabel()
         self.text_label.setWordWrap(True)
-        self.text_label.setStyleSheet(styles["user_bubble_style"])
+        bubble_style = styles["ai_response_style"] if self.is_ai else styles["user_bubble_style"]
+        self.text_label.setStyleSheet(bubble_style)
         self.text_label.setMinimumHeight(16)
         # Set size policy to encourage vertical expansion for wrapped text
         self.text_label.setSizePolicy(QSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.MinimumExpanding))
@@ -109,7 +111,8 @@ class TranscriptionListItem(QWidget):
 
         # Update timestamp and text bubble
         self.timestamp_label.setStyleSheet(styles["timestamp_style"])
-        self.text_label.setStyleSheet(styles["user_bubble_style"])
+        bubble_style = styles["ai_response_style"] if self.is_ai else styles["user_bubble_style"]
+        self.text_label.setStyleSheet(bubble_style)
 
         # Update buttons (inactive state)
         inactive_style = styles["button_style"]

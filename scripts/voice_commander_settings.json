@@ -1,0 +1,16 @@
+{
+    "language": "en",
+    "microphone_index": 3,
+    "microphone_name": "Microphone (Microphone W2G)",
+    "ui_theme": "light",
+    "window_position": [
+        2521,
+        207
+    ],
+    "window_size": [
+        800,
+        600
+    ],
+    "mute_llm": true,
+    "automatic_paste": true
+}
