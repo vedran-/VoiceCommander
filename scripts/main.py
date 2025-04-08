@@ -19,6 +19,13 @@ from functools import partial  # Added for creating button callbacks
 import wave  # Added for reading WAV files
 import pygame  # Added for playing audio
 
+# Import pynput for keyboard capture
+try:
+    from pynput import keyboard as pynput_keyboard
+except ImportError:
+    pynput_keyboard = None
+    logging.error("pynput library not found. Cannot capture keyboard shortcuts.")
+
 # Import our services
 from . import dependencies
 from . import VoskService
@@ -428,13 +435,8 @@ class SettingsDialog(QDialog):
             label.setStyleSheet("background: transparent; color: #505a7a;")
             shortcuts_layout.addWidget(label, row, 0)
             
-            # Get the current shortcut or "None" if not set
-            current_shortcut = self.keyboard_service.get_shortcut(action_name)
-            button_text = current_shortcut if current_shortcut else "None"
-            
-            # Convert to a friendly name for display if it's a virtual key
-            if current_shortcut and (current_shortcut.startswith("vk") or current_shortcut.startswith("Key_0x")):
-                button_text = self.keyboard_service.get_friendly_key_name(current_shortcut)
+            # Get the display string for the shortcut
+            button_text = self.keyboard_service.get_shortcut_display_string(action_name)
             
             # Create button for this shortcut
             shortcut_btn = QPushButton(button_text)
@@ -513,6 +515,16 @@ class SettingsDialog(QDialog):
         # If groq_service is available, update it directly
         if hasattr(self, 'groq_service') and self.groq_service:
             self.groq_service.unfamiliar_words = text
+
+    def log_error_message(self, message):
+        """Log an error message to console"""
+        logging.error(message)
+        # If we have access to the main app's status bar, show it there too
+        if hasattr(self, 'parent') and self.parent() and hasattr(self.parent(), 'statusBar'):
+            try:
+                self.parent().statusBar().showMessage(f"Error: {message}", 5000)
+            except Exception:
+                pass  # Ignore if we can't update the status bar
     
     def microphone_changed(self, index):
         """Handle microphone selection change"""
@@ -531,7 +543,7 @@ class SettingsDialog(QDialog):
             self.microphone_combo.addItem(f"{device_name}", device_id)
     
     def start_shortcut_recording(self, action_name):
-        """Start recording a new keyboard shortcut for the given action"""
+        """Start recording a new keyboard shortcut for the given action using pynput"""
         if action_name not in self.shortcut_buttons:
             return
             
@@ -541,96 +553,159 @@ class SettingsDialog(QDialog):
         original_text = button.text()
         button.setText("Press any key...")
         button.setStyleSheet("QPushButton { background-color: #ffcccc; }")
-        
-        # Temporarily stop all shortcut listeners while recording
+
+        # Check if pynput is available
+        if pynput_keyboard is None:
+            logging.error("pynput library not found. Cannot capture keyboard shortcuts.")
+            button.setText(original_text)
+            button.setStyleSheet("")
+            self.log_error_message("pynput library not found. Cannot capture keyboard shortcuts.")
+            return
+
+        # Temporarily stop keyboard service listener while capturing
         try:
-            keyboard.unhook_all_hotkeys()
-            logging.debug("Temporarily unhooked all hotkeys for shortcut recording")
+            keyboard_service_active = False
+            if hasattr(self.keyboard_service, '_pynput_listener') and self.keyboard_service._pynput_listener:
+                self.keyboard_service.stop_listening()
+                keyboard_service_active = True
+                logging.debug("Temporarily stopped keyboard service listener for shortcut recording")
         except Exception as e:
-            logging.error(f"Error unhooking hotkeys for recording: {e}")
+            logging.error(f"Error stopping keyboard service listener: {e}")
         
-        # Flag to track if key was recorded
-        key_recorded = False
+        # Variables for capturing state
+        is_captured = False
+        captured_modifiers = set()
+        captured_key = None
+        captured_vk = None
+        display_string = ""
+
+        # Create a global variable to store key maps
+        _CANCEL_KEYS = {pynput_keyboard.Key.esc, pynput_keyboard.Key.delete}
         
-        # Use the keyboard library to record the next keystroke
-        def on_key_event(e):
-            nonlocal key_recorded
+        # Callbacks for the temporary listener
+        def on_press(key):
+            nonlocal is_captured, captured_modifiers, captured_key, captured_vk, display_string
             
-            if key_recorded:
-                return
+            if is_captured:
+                return False  # Stop listener after capturing a key
+            
+            # Check for modifier keys
+            modifier = None
+            if key in (pynput_keyboard.Key.ctrl_l, pynput_keyboard.Key.ctrl_r):
+                modifier = 'ctrl'
+            elif key in (pynput_keyboard.Key.alt_l, pynput_keyboard.Key.alt_r, pynput_keyboard.Key.alt_gr):
+                modifier = 'alt'
+            elif key in (pynput_keyboard.Key.shift_l, pynput_keyboard.Key.shift_r):
+                modifier = 'shift'
+            elif key in (pynput_keyboard.Key.cmd_l, pynput_keyboard.Key.cmd_r, pynput_keyboard.Key.cmd):
+                modifier = 'cmd'
                 
+            if modifier:
+                captured_modifiers.add(modifier)
+                return True  # Continue listening for the actual key
+            
+            # Check if it's a cancel key
+            if key in _CANCEL_KEYS:
+                # Clear the shortcut
+                is_captured = True
+                captured_key = None
+                captured_vk = None
+                display_string = "None"
+                
+                # Update on UI thread
+                self.keyboard_service.set_shortcut_data(action_name, None)
+                return False
+            
+            # Otherwise it's the main key of the shortcut
+            is_captured = True
+            captured_key = key
+            
+            # Try to get the virtual key code
             try:
-                # Mark key as recorded to prevent multiple triggers
-                key_recorded = True
-                
-                # Get the key name from the event
-                key_str = e.name
-                
-                # For modifier combinations, get the full hotkey name
-                modifiers = []
-                if keyboard.is_pressed('ctrl'):
-                    modifiers.append('ctrl')
-                if keyboard.is_pressed('alt'):
-                    modifiers.append('alt')
-                if keyboard.is_pressed('shift'):
-                    modifiers.append('shift')
-                
-                # Build final key string
-                if modifiers and key_str not in modifiers:
-                    if len(key_str) == 1:  # Single character key
-                        key_str = '+'.join(modifiers + [key_str])
-                    else:  # Special key
-                        key_str = '+'.join(modifiers + [key_str])
-                
-                # Check if this is a cancel key
-                if key_str.lower() in self.keyboard_service.CANCEL_KEYS:
-                    # Clear the shortcut
-                    self.keyboard_service.set_shortcut(action_name, None)
-                    
-                    # Update the button text
-                    button.setText("None")
-                    button.setStyleSheet("")
-                else:
-                    # Update the shortcut
-                    self.keyboard_service.set_shortcut(action_name, key_str)
-                    
-                    # Update the button on the main thread
-                    button.setText(key_str)
-                    button.setStyleSheet("")
+                captured_vk = getattr(key, 'vk', None)
+            except Exception:
+                captured_vk = None
             
-                # Clean up and unregister the hook
-                keyboard.unhook(hook_id)
+            # Create a display string
+            parts = []
+            if 'ctrl' in captured_modifiers:
+                parts.append("Ctrl")
+            if 'alt' in captured_modifiers:
+                parts.append("Alt")
+            if 'shift' in captured_modifiers:
+                parts.append("Shift")
+            if 'cmd' in captured_modifiers:
+                parts.append("Win")
+            
+            try:
+                # Try to get a display name for the key
+                if hasattr(key, 'char') and key.char:
+                    key_name = key.char.upper()
+                elif hasattr(key, 'name') and key.name:
+                    key_name = key.name.replace('_', ' ').title()
+                else:
+                    key_name = str(key).replace('Key.', '').upper()
                 
-                # Re-register all shortcuts after we're done
-                self.keyboard_service._register_all_shortcuts()
-                
+                parts.append(key_name)
+                display_string = '+'.join(parts)
             except Exception as e:
-                logging.error(f"Error in shortcut key handler: {e}")
-                button.setText(original_text)
-                button.setStyleSheet("")
-                # Re-register all shortcuts
-                self.keyboard_service._register_all_shortcuts()
+                logging.error(f"Error creating display string: {e}")
+                display_string = '+'.join(parts) + "+" + str(key)
+            
+            # Stop the listener
+            return False
         
-        # Hook the keyboard event
-        hook_id = keyboard.hook(on_key_event)
+        # Create a temporary listener
+        listener = pynput_keyboard.Listener(on_press=on_press)
+        listener.start()
         
         # Add a timeout to reset the button if no key is pressed
         def reset_button():
-            nonlocal key_recorded
-            if not key_recorded and button.text() == "Press any key...":
+            if not is_captured and button.text() == "Press any key...":
                 button.setText(original_text)
                 button.setStyleSheet("")
-                # Clean up hook if still active
                 try:
-                    keyboard.unhook(hook_id)
+                    listener.stop()
                 except:
                     pass
-                # Re-register all shortcuts
-                self.keyboard_service._register_all_shortcuts()
-                
+                finally:
+                    # Restart keyboard service listener
+                    if keyboard_service_active:
+                        self.keyboard_service.start_listening()
+        
         # Schedule the reset after 5 seconds
         QTimer.singleShot(5000, reset_button)
-    
+        
+        # Wait for the listener to finish (up to 5 seconds)
+        listener.join(timeout=5.0)
+        
+        # Process the captured shortcut
+        if is_captured:
+            if captured_key:
+                # Create shortcut data for KeyboardService
+                shortcut_data = {
+                    'mods': captured_modifiers,
+                    'vk': captured_vk,
+                    'key_repr': str(captured_key),
+                    'display': display_string
+                }
+                
+                # Update the shortcut in the service
+                self.keyboard_service.set_shortcut_data(action_name, shortcut_data)
+                
+                # Update button display
+                button.setText(display_string)
+            else:
+                # Clear the shortcut (cancel keys were pressed)
+                button.setText("None")
+            
+            # Reset button style
+            button.setStyleSheet("")
+        
+        # Restart keyboard service listener if it was active
+        if keyboard_service_active:
+            self.keyboard_service.start_listening()
+
     def get_selected_microphone(self):
         """Get the currently selected microphone index"""
         index = self.microphone_combo.currentIndex()
@@ -864,6 +939,10 @@ class VoiceCommanderApp(QMainWindow):
         
         # Connect the shortcut_triggered signal
         self.keyboard_service.shortcut_triggered.connect(self.on_shortcut_triggered)
+
+        # Connect the keyboard_error signal to display errors to the user
+        if hasattr(self.keyboard_service, 'keyboard_error'):
+            self.keyboard_service.keyboard_error.connect(self.on_keyboard_error)
         
         # Load settings
         saved_language = self.settings_manager.get('language', 'en')
@@ -1587,7 +1666,10 @@ class VoiceCommanderApp(QMainWindow):
             
             # Stop the keyboard listener
             if hasattr(self, 'keyboard_service') and self.keyboard_service:
+                logger.info("Stopping keyboard service")
                 self.keyboard_service.stop_listening()
+                # Make sure all keyboard data is saved
+                self.keyboard_service.save_shortcuts()
             
         except Exception as e:
             logger.error(f"Error during application shutdown: {e}", exc_info=True)
@@ -1907,6 +1989,13 @@ class VoiceCommanderApp(QMainWindow):
         # No need to do anything here as the action is directly connected to the method
         # The methods will be called directly by the keyboard service
         
+    def on_keyboard_error(self, error_msg):
+        """Handle keyboard service errors"""
+        self.log_status(f"Keyboard error: {error_msg}")
+        # Show error in status bar for a short time
+        if hasattr(self, 'statusBar'):
+            self.statusBar().showMessage(f"Keyboard error: {error_msg}", 5000)
+
 def main():
     """Main entry point for the Qt application"""
     # Enable high DPI scaling
