@@ -12,6 +12,7 @@ from datetime import datetime
 from PyQt6.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QPushButton
 from PyQt6.QtWidgets import QTextEdit, QLabel, QComboBox, QSplitter, QGroupBox, QGridLayout, QScrollArea
 from PyQt6.QtWidgets import QListWidget, QListWidgetItem, QDialog, QDialogButtonBox, QLineEdit  # Added QLineEdit
+from PyQt6.QtWidgets import QSizePolicy # <<< ADDED IMPORT
 from PyQt6.QtCore import Qt, QThread, pyqtSignal, pyqtSlot, QMetaObject, QTimer, QPoint, QSettings, QSize
 from PyQt6.QtGui import QColor, QTextCursor, QFont, QIcon, QPalette, QAction, QPixmap, QCloseEvent, QPainter, QBrush
 from functools import partial  # Added for creating button callbacks
@@ -82,8 +83,8 @@ class TranscriptionListItem(QWidget):
         """Set up the UI components for this widget"""
         # Main layout - horizontal
         main_layout = QHBoxLayout(self)
-        main_layout.setContentsMargins(8, 6, 8, 6)  # Slightly increased for better spacing
-        main_layout.setSpacing(8)  # Slightly increased for better spacing
+        main_layout.setContentsMargins(8, 2, 8, 2)  # Further reduced vertical padding from 4px to 2px
+        main_layout.setSpacing(8)  # Keep the horizontal spacing
         main_layout.setAlignment(Qt.AlignmentFlag.AlignVCenter)  # Ensure vertical centering
         
         # Timestamp label with better styling
@@ -96,31 +97,35 @@ class TranscriptionListItem(QWidget):
         self.text_label = QLabel()
         self.text_label.setWordWrap(True)
         self.text_label.setStyleSheet("color: #505a7a; font-size: 11pt; font-family: 'Segoe UI', sans-serif;")
-        self.text_label.setMinimumHeight(20)  # Set minimum height to prevent text cutting off
+        self.text_label.setMinimumHeight(16)  # Further reduced from 18px to 16px
+        # Set size policy to encourage vertical expansion for wrapped text
+        self.text_label.setSizePolicy(QSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.MinimumExpanding))
         main_layout.addWidget(self.text_label, 1)  # Add stretch factor of 1 to expand
         
         # Button container
         button_layout = QHBoxLayout()
-        button_layout.setSpacing(8)  # Increased spacing between buttons
-        button_layout.setAlignment(Qt.AlignmentFlag.AlignVCenter)  # Ensure vertical centering
+        button_layout.setSpacing(4)  # Further reduced spacing from 6px to 4px
+        button_layout.setAlignment(Qt.AlignmentFlag.AlignVCenter)
         
-        # Button style
+        # Button style (Smaller size)
         button_style = """
             QPushButton {
                 background-color: #f1f3fa;
                 border: none;
-                border-radius: 5px;
-                padding: 5px;
-                min-height: 28px;
-                max-height: 28px;
+                border-radius: 4px;
+                padding: 2px;
+                min-height: 22px;
+                max-height: 22px;
+                min-width: 22px;
+                max-width: 22px;
             }
             QPushButton:hover {
                 background-color: #e1e5ee;
             }
             QPushButton:pressed {
                 background-color: #d1d6e6;
-                min-height: 28px;
-                max-height: 28px;
+                min-height: 22px;
+                max-height: 22px;
             }
             QPushButton:disabled {
                 background-color: #f5f7fd;
@@ -131,18 +136,18 @@ class TranscriptionListItem(QWidget):
         # Copy button with icon
         self.copy_button = QPushButton()
         self.copy_button.setIcon(QIcon.fromTheme("edit-copy", QIcon("assets/copy-icon.png")))
-        self.copy_button.setIconSize(QSize(16, 16))
+        self.copy_button.setIconSize(QSize(14, 14))
         self.copy_button.setToolTip("Copy transcription to clipboard")
-        self.copy_button.setFixedSize(28, 28)
+        self.copy_button.setFixedSize(22, 22)  # Reduced from 26x26 to 22x22
         self.copy_button.setStyleSheet(button_style)
         button_layout.addWidget(self.copy_button)
         
         # Play button with icon
         self.play_button = QPushButton()
         self.play_button.setIcon(QIcon.fromTheme("media-playback-start", QIcon("assets/play-icon.png")))
-        self.play_button.setIconSize(QSize(16, 16))
+        self.play_button.setIconSize(QSize(14, 14))
         self.play_button.setToolTip("Play audio")
-        self.play_button.setFixedSize(28, 28)
+        self.play_button.setFixedSize(22, 22)  # Reduced from 26x26 to 22x22
         self.play_button.setStyleSheet(button_style)
         self.play_button.setEnabled(False)  # Disabled by default until audio_path is set
         button_layout.addWidget(self.play_button)
@@ -150,9 +155,9 @@ class TranscriptionListItem(QWidget):
         # Transcribe Again button with icon
         self.transcribe_button = QPushButton()
         self.transcribe_button.setIcon(QIcon.fromTheme("view-refresh", QIcon("assets/refresh-icon.png")))
-        self.transcribe_button.setIconSize(QSize(16, 16))
+        self.transcribe_button.setIconSize(QSize(14, 14))
         self.transcribe_button.setToolTip("Transcribe again")
-        self.transcribe_button.setFixedSize(28, 28)
+        self.transcribe_button.setFixedSize(22, 22)  # Reduced from 26x26 to 22x22
         self.transcribe_button.setStyleSheet(button_style)
         self.transcribe_button.setEnabled(False)  # Disabled by default until audio_path is set
         button_layout.addWidget(self.transcribe_button)
@@ -190,18 +195,20 @@ class TranscriptionListItem(QWidget):
                 QPushButton {
                     background-color: #f5e7ff;
                     border: none;
-                    border-radius: 5px;
-                    padding: 5px;
-                    min-height: 28px;
-                    max-height: 28px;
+                    border-radius: 4px;
+                    padding: 2px;
+                    min-height: 22px;
+                    max-height: 22px;
+                    min-width: 22px;
+                    max-width: 22px;
                 }
                 QPushButton:hover {
                     background-color: #ead6f5;
                 }
                 QPushButton:pressed {
                     background-color: #dfc5eb;
-                    min-height: 28px;
-                    max-height: 28px;
+                    min-height: 22px;
+                    max-height: 22px;
                 }
             """)
         else:
@@ -211,18 +218,20 @@ class TranscriptionListItem(QWidget):
                 QPushButton {
                     background-color: #f1f3fa;
                     border: none;
-                    border-radius: 5px;
-                    padding: 5px;
-                    min-height: 28px;
-                    max-height: 28px;
+                    border-radius: 4px;
+                    padding: 2px;
+                    min-height: 22px;
+                    max-height: 22px;
+                    min-width: 22px;
+                    max-width: 22px;
                 }
                 QPushButton:hover {
                     background-color: #e1e5ee;
                 }
                 QPushButton:pressed {
                     background-color: #d1d6e6;
-                    min-height: 28px;
-                    max-height: 28px;
+                    min-height: 22px;
+                    max-height: 22px;
                 }
                 QPushButton:disabled {
                     background-color: #f5f7fd;
@@ -968,11 +977,11 @@ class VoiceCommanderApp(QMainWindow):
                 border-radius: 8px;
                 background-color: #ffffff;
                 alternate-background-color: #f8f9fc;
-                padding: 3px;
+                padding: 2px;
             }
             QListWidget::item {
                 border-bottom: 1px solid #f1f3fa;
-                padding: 3px;
+                padding: 1px;
                 border-radius: 6px;
             }
             QListWidget::item:hover {
@@ -980,7 +989,7 @@ class VoiceCommanderApp(QMainWindow):
             }
         """)
         self.chat_display.setFont(QFont("Segoe UI", 11))
-        self.chat_display.setSpacing(1)  # Reduced spacing between items
+        self.chat_display.setSpacing(0)  # Reduced spacing between items from 1px to 0px
         self.chat_display.setWordWrap(True)
         chat_layout.addWidget(self.chat_display)
         
@@ -1270,7 +1279,7 @@ class VoiceCommanderApp(QMainWindow):
         self.audio_worker = AudioProcessingWorker(self.transcription_service)
         self.audio_worker.start()
         
-        self.log_status("Audio processing initialized. Click 'Start Transcription' to begin recording.")
+        self.log_status("Audio processing initialized.")
     
     @pyqtSlot(dict)  # Updated to receive dict instead of str
     def on_transcription_result(self, result_data):
@@ -1325,16 +1334,11 @@ class VoiceCommanderApp(QMainWindow):
         # Create a list item and set its size
         list_item = QListWidgetItem(self.chat_display)
         
-        # Calculate text height based on content length and width
-        # We need approximately 1 line per 40 characters with some buffer
-        text_lines = max(1, (len(text) // 40) + text.count('\n') + 1)
-        item_height = max(40, 20 + (text_lines * 20))  # Min height 40px, or calculated height
-        
-        list_item.setSizeHint(QSize(self.chat_display.width(), item_height))
-        
         # Add the widget to the list item
         self.chat_display.addItem(list_item)
         self.chat_display.setItemWidget(list_item, item_widget)
+        # Explicitly set the item hint based on the widget's calculated hint
+        list_item.setSizeHint(item_widget.sizeHint())
         
         # Scroll to the new item
         self.chat_display.scrollToItem(list_item)
@@ -1344,7 +1348,7 @@ class VoiceCommanderApp(QMainWindow):
         # Create a container widget for the AI response
         container = QWidget()
         container_layout = QVBoxLayout(container)
-        container_layout.setContentsMargins(8, 8, 8, 8)
+        container_layout.setContentsMargins(8, 4, 8, 4)  # Further reduced vertical padding from 6px to 4px
         
         # Create a QLabel for the AI response with better styling
         label = QLabel(text)
@@ -1352,26 +1356,24 @@ class VoiceCommanderApp(QMainWindow):
         label.setStyleSheet("""
             color: #505a7a; 
             background-color: #eef1fa; 
-            padding: 12px; 
+            padding: 8px; 
             border-radius: 8px; 
             font-size: 11pt;
             font-family: 'Segoe UI', sans-serif;
-            min-height: 20px;
+            min-height: 16px;
         """)
+        # Set size policy to encourage vertical expansion for wrapped text
+        label.setSizePolicy(QSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.MinimumExpanding))
         container_layout.addWidget(label)
         
         # Create a list item and set its size
         list_item = QListWidgetItem(self.chat_display)
         
-        # Calculate height based on text content - more accurate calculation
-        text_lines = max(1, (len(text) // 40) + text.count('\n') + 1)
-        item_height = max(40, 20 + (text_lines * 20))  # Min height 40px, or calculated height
-        
-        list_item.setSizeHint(QSize(self.chat_display.width(), item_height))
-        
         # Add the widget to the list item
         self.chat_display.addItem(list_item)
         self.chat_display.setItemWidget(list_item, container)
+        # Explicitly set the item hint based on the widget's calculated hint
+        list_item.setSizeHint(container.sizeHint())
         
         # Scroll to the new item
         self.chat_display.scrollToItem(list_item)
@@ -1743,9 +1745,10 @@ class VoiceCommanderApp(QMainWindow):
                 for i in range(self.chat_display.count()):
                     list_item = self.chat_display.item(i)
                     if self.chat_display.itemWidget(list_item) == item_widget:
-                        text_lines = max(1, (len(new_text) // 40) + 1)
-                        item_height = 60 + (text_lines * 20)
-                        list_item.setSizeHint(QSize(self.chat_display.width(), item_height))
+                        # The size should now be determined automatically by the widget's sizeHint.
+                        # list_item.setSizeHint(QSize(self.chat_display.width(), item_height))
+                        # Update the item hint based on the widget's recalculated hint
+                        list_item.setSizeHint(item_widget.sizeHint())
                         break
                 
                 self.log_status(f"Re-transcribed audio: {new_text}")
@@ -1764,13 +1767,34 @@ class VoiceCommanderApp(QMainWindow):
                 item = self.chat_display.item(i)
                 widget = self.chat_display.itemWidget(item)
                 
-                # Only save transcription items, not AI responses
                 if isinstance(widget, TranscriptionListItem):
+                    # User transcription
                     chat_history.append({
+                        'type': 'user',
                         'timestamp': widget.timestamp_label.text().strip(' >'),
                         'text': widget.text_label.text(),
                         'audio_path': widget.audio_path
                     })
+                else:
+                    # AI response - identify by looking for a QLabel inside the widget's layout
+                    try:
+                        ai_label = None
+                        # Find the QLabel in the widget's layout
+                        for j in range(widget.layout().count()):
+                            child = widget.layout().itemAt(j).widget()
+                            if isinstance(child, QLabel):
+                                ai_label = child
+                                break
+                        
+                        if ai_label:
+                            chat_history.append({
+                                'type': 'ai',
+                                'text': ai_label.text()
+                            })
+                    except (AttributeError, Exception) as e:
+                        # Skip if we can't extract text from this widget
+                        logger.warning(f"Could not extract AI response from widget: {e}")
+                        continue
             
             # Save to a file in the settings directory
             settings_dir = os.path.dirname(self.settings_manager.settings_path)
@@ -1811,16 +1835,24 @@ class VoiceCommanderApp(QMainWindow):
             
             # Add each item to the display
             for item in chat_history:
-                timestamp = item.get('timestamp', '')
-                text = item.get('text', '')
-                audio_path = item.get('audio_path')
+                item_type = item.get('type', 'user')  # Default to user type for backward compatibility
                 
-                # Verify audio path exists
-                if audio_path and not os.path.exists(audio_path):
-                    logger.warning(f"Audio file not found: {audio_path}")
-                    audio_path = None
-                
-                self.add_transcription_item(timestamp, text, audio_path)
+                if item_type == 'user':
+                    # User transcription
+                    timestamp = item.get('timestamp', '')
+                    text = item.get('text', '')
+                    audio_path = item.get('audio_path')
+                    
+                    # Verify audio path exists
+                    if audio_path and not os.path.exists(audio_path):
+                        logger.warning(f"Audio file not found: {audio_path}")
+                        audio_path = None
+                    
+                    self.add_transcription_item(timestamp, text, audio_path)
+                elif item_type == 'ai':
+                    # AI response
+                    text = item.get('text', '')
+                    self.add_ai_response(text)
             
             logger.info(f"Loaded chat history with {len(chat_history)} items")
             

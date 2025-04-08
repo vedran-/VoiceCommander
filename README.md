@@ -144,6 +144,11 @@ If you encounter issues:
    - Verify your Groq API key is correctly set
    - Ensure you have an internet connection for API access
 
+## Credits
+
+100% of the code in this project was written by AI, mostly by Claude 3.5 and 3.7 Sonnet, and some by Gemini 2.5 Pro.
+
+
 ## License
 
 MIT License
