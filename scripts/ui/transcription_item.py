@@ -19,6 +19,8 @@ class TranscriptionListItem(QWidget):
         """Set up the UI components for this widget"""
         # Get theme styles
         styles = ThemeManager.get_transcription_item_styles(self.theme)
+        # Set container background
+        self.setStyleSheet(styles["container_style"])
         
         # Main layout - horizontal with gradient background
         main_layout = QHBoxLayout(self)
@@ -32,10 +34,10 @@ class TranscriptionListItem(QWidget):
         self.timestamp_label.setFixedWidth(80)
         main_layout.addWidget(self.timestamp_label)
         
-        # Text content - expand horizontally with better styling
+        # Text content - expand horizontally using user bubble style
         self.text_label = QLabel()
         self.text_label.setWordWrap(True)
-        self.text_label.setStyleSheet(styles["text_style"])
+        self.text_label.setStyleSheet(styles["user_bubble_style"])
         self.text_label.setMinimumHeight(16)
         # Set size policy to encourage vertical expansion for wrapped text
         self.text_label.setSizePolicy(QSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.MinimumExpanding))
@@ -100,26 +102,58 @@ class TranscriptionListItem(QWidget):
         """Update the widget with the current theme"""
         self.theme = theme
         styles = ThemeManager.get_transcription_item_styles(theme)
-        
-        # Update timestamp and text
+        colors = ThemeManager.get_theme(theme)
+
+        # Update container background
+        self.setStyleSheet(styles["container_style"])
+
+        # Update timestamp and text bubble
         self.timestamp_label.setStyleSheet(styles["timestamp_style"])
-        self.text_label.setStyleSheet(styles["text_style"])
-        
-        # Update buttons
-        self.copy_button.setStyleSheet(styles["button_style"])
-        self.play_button.setStyleSheet(styles["button_style"] if not self.is_playing else styles["playing_button_style"])
-        self.transcribe_button.setStyleSheet(styles["button_style"])
-        
+        self.text_label.setStyleSheet(styles["user_bubble_style"])
+
+        # Update buttons (inactive state)
+        inactive_style = styles["button_style"]
+        self.copy_button.setStyleSheet(inactive_style)
+        self.transcribe_button.setStyleSheet(inactive_style)
+
+        # Update play/stop button based on current state
+        self.setPlaying(self.is_playing)
+
     def setPlaying(self, is_playing):
-        """Update the play button state"""
+        """Update the play button state and style"""
         self.is_playing = is_playing
         styles = ThemeManager.get_transcription_item_styles(self.theme)
-        
+        colors = ThemeManager.get_theme(self.theme)
+
         if is_playing:
+            # Define active style using accent color
+            text_color = "#ffffff" if self.theme == "light" else colors["bg_primary"] # Contrast text
+            active_style = f"""
+                QPushButton {{
+                    background-color: {colors["accent"]};
+                    border: 1px solid {colors["accent"]};
+                    color: {text_color};
+                    border-radius: 4px;
+                    padding: 2px;
+                    min-height: 28px;
+                    max-height: 28px;
+                    min-width: 28px;
+                    max-width: 28px;
+                }}
+                QPushButton:hover {{
+                     background-color: {ThemeManager._adjust_color(colors["accent"], -20 if self.theme == 'light' else 20)};
+                     border-color: {ThemeManager._adjust_color(colors["accent"], -20 if self.theme == 'light' else 20)};
+                }}
+                QPushButton:pressed {{
+                     background-color: {ThemeManager._adjust_color(colors["accent"], -40 if self.theme == 'light' else 40)};
+                     border-color: {ThemeManager._adjust_color(colors["accent"], -40 if self.theme == 'light' else 40)};
+                }}
+            """
             self.play_button.setText("■")  # Simple square stop icon
             self.play_button.setToolTip("Stop playback")
-            self.play_button.setStyleSheet(styles["playing_button_style"])
+            self.play_button.setStyleSheet(active_style)
         else:
+            # Revert to standard small button style
             self.play_button.setText("▶")  # Simple triangle play icon
             self.play_button.setToolTip("Play audio")
             self.play_button.setStyleSheet(styles["button_style"])

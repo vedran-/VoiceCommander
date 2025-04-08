@@ -519,24 +519,27 @@ class VoiceCommanderApp(QMainWindow):
             
             # QComboBox styling
             elif isinstance(child, QComboBox):
+                # Ensure selection color contrasts well
+                selection_text_color = colors["text_primary"] if theme == "light" else "#ffffff" # Dark text on light accent, White text on dark accent
                 child.setStyleSheet(f"""
                     QComboBox {{
-                        border: 1px solid {colors['border']};
+                        border: 1px solid {colors["border"]};
                         border-radius: 6px;
                         padding: 5px;
-                        background-color: {colors['bg_secondary']};
-                        color: {colors['text_primary']};
+                        background-color: {colors["bg_primary"]}; /* Use primary bg */
+                        color: {colors["text_primary"]};
                     }}
                     QComboBox::drop-down {{
                         border: none;
                         width: 24px;
+                        /* TODO: Consider styling the dropdown arrow based on theme */
                     }}
                     QComboBox QAbstractItemView {{
-                        background-color: {colors['bg_secondary']};
-                        border: 1px solid {colors['border']};
+                        background-color: {colors["bg_primary"]}; /* Use primary bg */
+                        border: 1px solid {colors["border"]};
                         border-radius: 6px;
-                        selection-background-color: {colors['bg_accent']};
-                        selection-color: {colors['text_primary']};
+                        selection-background-color: {colors["bg_accent"]};
+                        selection-color: {selection_text_color}; /* Ensure contrast */
                     }}
                 """)
             
@@ -545,47 +548,60 @@ class VoiceCommanderApp(QMainWindow):
                 child.setStyleSheet(f"""
                     QGroupBox {{
                         font-weight: bold;
-                        border: 1px solid {colors['border']};
+                        border: 1px solid {colors["border"]};
                         border-radius: 8px;
                         margin-top: 12px;
-                        background-color: {colors['bg_secondary']};
+                        background-color: {colors["bg_primary"]}; /* Use primary bg */
                     }}
                     QGroupBox::title {{
                         subcontrol-origin: margin;
                         left: 10px;
                         padding: 0 5px;
-                        color: {colors['text_primary']};
+                        color: {colors["text_primary"]};
+                        background-color: {colors["bg_primary"]}; /* Title bg matches GroupBox */
+                        border-radius: 4px; /* Optional: Slightly round title bg */
                     }}
                 """)
             
             # QTextEdit styling (like status text)
             elif isinstance(child, QTextEdit):
+                 # Define selection text color for contrast
+                selection_text_color = "#ffffff" if theme == "light" else colors["bg_primary"] # White on light accent, Dark bg color on dark accent
                 child.setStyleSheet(f"""
-                    border: 1px solid {colors['border']};
+                    border: 1px solid {colors["border"]};
                     border-radius: 8px;
-                    background-color: {colors['bg_secondary']};
-                    selection-background-color: {colors['accent']};
-                    selection-color: white;
-                    color: {colors['text_primary']};
+                    background-color: {colors["bg_primary"]}; /* Use primary bg */
+                    selection-background-color: {colors["accent"]};
+                    selection-color: {selection_text_color}; /* Ensure contrast */
+                    color: {colors["text_primary"]};
                 """)
             
             # QListWidget styling (chat display)
             elif isinstance(child, QListWidget):
+                # Ensure selection color contrasts well
+                selection_text_color = colors["text_primary"] if theme == "light" else "#ffffff" # Dark text on light accent, White text on dark accent
                 child.setStyleSheet(f"""
                     QListWidget {{
-                        border: 1px solid {colors['border']};
+                        border: 1px solid {colors["border"]};
                         border-radius: 8px;
-                        background-color: {colors['bg_secondary']};
-                        alternate-background-color: {colors['bg_primary']};
+                        background-color: {colors["bg_primary"]}; /* Use primary bg */
+                        alternate-background-color: {colors["bg_primary"]}; /* Use primary bg - remove alternation */
                         padding: 2px;
                     }}
                     QListWidget::item {{
-                        border-bottom: 1px solid {colors['border']};
+                        border-bottom: 1px solid {colors["border"]};
                         padding: 1px;
-                        border-radius: 6px;
+                        border-radius: 6px; /* Match item widget radius if possible */
+                        color: {colors["text_primary"]}; /* Ensure item text color is set */
+                        background-color: transparent; /* Ensure item background is transparent by default */
                     }}
                     QListWidget::item:hover {{
-                        background-color: {colors['bg_accent']};
+                        background-color: {colors["bg_accent"]}; /* Hover uses accent bg */
+                    }}
+                    QListWidget::item:selected {{
+                         background-color: {colors["accent"]}; /* Selection uses main accent */
+                         color: {selection_text_color}; /* Ensure contrast for selected text */
+                         border-radius: 6px;
                     }}
                 """)
             
@@ -603,23 +619,27 @@ class VoiceCommanderApp(QMainWindow):
     
     def update_transcription_item_themes(self):
         """Update the theme for all transcription items in the chat display"""
+        styles = ThemeManager.get_transcription_item_styles(self.theme)
         for i in range(self.chat_display.count()):
             item = self.chat_display.item(i)
             widget = self.chat_display.itemWidget(item)
-            
+
             # Update TranscriptionListItem widgets
             if hasattr(widget, 'setTheme'):
-                widget.setTheme(self.theme)
-            
-            # Update AI response container widgets
+                widget.setTheme(self.theme) # Assumes setTheme uses styles from ThemeManager
+                # Ensure the container widget itself has the correct background
+                widget.setStyleSheet(styles["container_style"])
+
+            # Update AI response container widgets (which contain a QLabel)
             elif isinstance(widget, QWidget) and widget.layout():
+                # Set the container background first
+                widget.setStyleSheet(styles["container_style"])
                 for j in range(widget.layout().count()):
                     child = widget.layout().itemAt(j).widget()
                     if isinstance(child, QLabel):
                         # This is an AI response, update its style
-                        styles = ThemeManager.get_transcription_item_styles(self.theme)
                         child.setStyleSheet(styles["ai_response_style"])
-                        
+
     def open_settings_dialog(self):
         """Open the settings dialog"""
         settings_dialog = SettingsDialog(
