@@ -195,11 +195,11 @@ class ThemeManager:
                 background-color: {small_button_bg};
                 border: 1px solid {colors["border"]}; /* Add border */
                 border-radius: 4px;
-                padding: 2px;
-                min-height: 28px; /* Keep original size */
-                max-height: 28px;
-                min-width: 28px;
-                max-width: 28px;
+                padding: 1px; /* Reduced padding */
+                min-height: 24px; /* Reduced size */
+                max-height: 24px; /* Reduced size */
+                min-width: 24px; /* Reduced size */
+                max-width: 24px; /* Reduced size */
                 color: {colors["text_primary"]};
                 /* TODO: Consider adding icon color setting if needed */
             }}
@@ -210,8 +210,8 @@ class ThemeManager:
             QPushButton:pressed {{
                 background-color: {small_pressed_bg};
                 border-color: {cls._adjust_color(colors["border"], 0 if theme == 'light' else 25)}; /* Match inactive button pressed */
-                min-height: 28px;
-                max-height: 28px;
+                min-height: 24px; /* Keep reduced size consistent */
+                max-height: 24px;
             }}
             QPushButton:disabled {{
                 background-color: {cls._adjust_color(small_button_bg, -5 if theme == 'light' else 5)}; /* Slightly adjusted bg */
@@ -249,36 +249,36 @@ class ThemeManager:
     def get_transcription_item_styles(cls, theme):
         """Get styles for transcription list items"""
         colors = cls.get_theme(theme)
-        # User bubble: Subtle contrast with primary bg, standard border
-        user_bubble_bg = colors["bg_accent"] # Use accent bg for user bubble
-        # AI response: Primary background, different border or slightly inset? Let's use primary bg and standard border for now.
-        ai_response_bg = colors["bg_primary"]
+        # User bubble: Transparent background, no border, minimal padding
+        user_bubble_style = f"""
+            QLabel {{
+                color: {colors["text_primary"]};
+                background-color: transparent; /* Transparent */
+                padding: 1px; /* Minimal padding */
+                border: none; /* No border */
+                /* border-radius removed */
+                font-size: 11pt;
+                font-family: 'Segoe UI', sans-serif;
+                margin: 2px; /* Keep slight margin */
+            }}
+        """
+        # AI response: Transparent background, no border, minimal padding
+        ai_response_style = f"""
+            QLabel {{
+                color: {colors["text_primary"]};
+                background-color: transparent; /* Transparent */
+                padding: 1px; /* Minimal padding */
+                border: none; /* No border */
+                /* border-radius removed */
+                font-size: 11pt;
+                font-family: 'Segoe UI', sans-serif;
+                margin: 2px; /* Keep slight margin */
+            }}
+        """
 
         return {
-            "user_bubble_style": f"""
-                QLabel {{
-                    color: {colors["text_primary"]};
-                    background-color: {user_bubble_bg};
-                    padding: 8px;
-                    border: 1px solid {colors["border"]}; /* Add border */
-                    border-radius: 8px;
-                    font-size: 11pt;
-                    font-family: 'Segoe UI', sans-serif;
-                    margin: 2px; /* Add slight margin */
-                }}
-            """,
-            "ai_response_style": f"""
-                QLabel {{
-                    color: {colors["text_primary"]};
-                    background-color: {ai_response_bg};
-                    padding: 8px;
-                    border: 1px solid {colors["border"]}; /* Add border */
-                    border-radius: 8px;
-                    font-size: 11pt;
-                    font-family: 'Segoe UI', sans-serif;
-                    margin: 2px; /* Add slight margin */
-                }}
-            """,
+            "user_bubble_style": user_bubble_style,
+            "ai_response_style": ai_response_style,
             "timestamp_style": f"color: {colors['text_secondary']}; font-size: 9pt;",
             "container_style": f"background-color: {colors['bg_primary']}; border: none;", # Container for item widget should blend in
             "button_style": cls.get_small_button_style(theme) # Use existing small style for consistency

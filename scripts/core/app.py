@@ -293,8 +293,7 @@ class VoiceCommanderApp(QMainWindow):
                 padding: 2px;
             }}
             QListWidget::item {{
-                border-bottom: 1px solid {colors['border']};
-                padding: 1px;
+                padding: 0px;
                 border-radius: 6px;
             }}
             QListWidget::item:hover {{
@@ -589,9 +588,8 @@ class VoiceCommanderApp(QMainWindow):
                         padding: 2px;
                     }}
                     QListWidget::item {{
-                        border-bottom: 1px solid {colors["border"]};
-                        padding: 1px;
-                        border-radius: 6px; /* Match item widget radius if possible */
+                        padding: 0px;
+                        border-radius: 6px;
                         color: {colors["text_primary"]}; /* Ensure item text color is set */
                         background-color: transparent; /* Ensure item background is transparent by default */
                     }}

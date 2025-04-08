@@ -25,8 +25,8 @@ class TranscriptionListItem(QWidget):
         
         # Main layout - horizontal with gradient background
         main_layout = QHBoxLayout(self)
-        main_layout.setContentsMargins(8, 4, 8, 4)  # Reduced vertical padding for compact look
-        main_layout.setSpacing(8)
+        main_layout.setContentsMargins(4, 1, 4, 1)  # Reduced margins
+        main_layout.setSpacing(4) # Reduced spacing
         main_layout.setAlignment(Qt.AlignmentFlag.AlignVCenter)
         
         # Timestamp label with better styling
@@ -47,23 +47,23 @@ class TranscriptionListItem(QWidget):
         
         # Button container
         button_layout = QHBoxLayout()
-        button_layout.setSpacing(4)
+        button_layout.setSpacing(2) # Reduced spacing
         button_layout.setAlignment(Qt.AlignmentFlag.AlignVCenter)
         
         # Copy button with simple Unicode icon
         self.copy_button = QPushButton()
         self.copy_button.setText("📄")  # Simple document icon
         self.copy_button.setToolTip("Copy transcription to clipboard")
-        self.copy_button.setFixedSize(28, 28)  # Maintain size for the character
-        self.copy_button.setStyleSheet(styles["button_style"])
+        self.copy_button.setFixedSize(24, 24)  # Reduced size
+        self.copy_button.setStyleSheet(styles["button_style"]) # Style already updated by Jill's change
         button_layout.addWidget(self.copy_button)
         
         # Play button with simple Unicode icon
         self.play_button = QPushButton()
         self.play_button.setText("▶")  # Simple triangle play icon
         self.play_button.setToolTip("Play audio")
-        self.play_button.setFixedSize(28, 28)  # Maintain size for the character
-        self.play_button.setStyleSheet(styles["button_style"])
+        self.play_button.setFixedSize(24, 24)  # Reduced size
+        self.play_button.setStyleSheet(styles["button_style"]) # Style already updated by Jill's change
         self.play_button.setEnabled(False)  # Disabled by default until audio_path is set
         button_layout.addWidget(self.play_button)
         
@@ -71,8 +71,8 @@ class TranscriptionListItem(QWidget):
         self.transcribe_button = QPushButton()
         self.transcribe_button.setText("⟳")  # Simple refresh icon
         self.transcribe_button.setToolTip("Transcribe again")
-        self.transcribe_button.setFixedSize(28, 28)  # Maintain size for the character
-        self.transcribe_button.setStyleSheet(styles["button_style"])
+        self.transcribe_button.setFixedSize(24, 24)  # Reduced size
+        self.transcribe_button.setStyleSheet(styles["button_style"]) # Style already updated by Jill's change
         self.transcribe_button.setEnabled(False)  # Disabled by default until audio_path is set
         button_layout.addWidget(self.transcribe_button)
         
@@ -137,11 +137,11 @@ class TranscriptionListItem(QWidget):
                     border: 1px solid {colors["accent"]};
                     color: {text_color};
                     border-radius: 4px;
-                    padding: 2px;
-                    min-height: 28px;
-                    max-height: 28px;
-                    min-width: 28px;
-                    max-width: 28px;
+                    padding: 1px; /* Match reduced padding */
+                    min-height: 24px; /* Reduced size */
+                    max-height: 24px;
+                    min-width: 24px;
+                    max-width: 24px;
                 }}
                 QPushButton:hover {{
                      background-color: {ThemeManager._adjust_color(colors["accent"], -20 if self.theme == 'light' else 20)};
@@ -159,7 +159,7 @@ class TranscriptionListItem(QWidget):
             # Revert to standard small button style
             self.play_button.setText("▶")  # Simple triangle play icon
             self.play_button.setToolTip("Play audio")
-            self.play_button.setStyleSheet(styles["button_style"])
+            self.play_button.setStyleSheet(styles["button_style"]) # Uses updated small button style from ThemeManager
         
     def stopPlayback(self):
         """Stop any active playback"""
