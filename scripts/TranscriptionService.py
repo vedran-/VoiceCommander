@@ -48,6 +48,8 @@ class TranscriptionService(QObject):
         pygame.mixer.init()
         self.ping_sound = pygame.mixer.Sound("c:/pj/projects/VoiceCommander/assets/snd_fragment_retrievewav-14728.mp3")
         self.ping_sound.set_volume(0.5)
+        self.push_to_talk_sound = pygame.mixer.Sound("c:/pj/projects/VoiceCommander/assets/bubble-pop-4-323580.mp3")
+        self.push_to_talk_sound.set_volume(0.5)
 
         # Create GroqWhisperService and provide a reference to this service
         self.groq_whisper_service = GroqWhisperService.GroqWhisperService()
@@ -149,6 +151,9 @@ class TranscriptionService(QObject):
         self.is_push_to_talk_mode = not self.is_push_to_talk_mode
 
         if self.is_push_to_talk_mode:
+            # Play sound when push-to-talk is activated
+            self.push_to_talk_sound.play()
+            
             if not self.is_transcribing:
                 self.resume_transcription()
                 self.pause_transcription_on_end_of_push_to_talk = True
