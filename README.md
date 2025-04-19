@@ -18,6 +18,7 @@ A voice-controlled assistant with a Qt-based user interface that listens to your
 - **Microphone Selection**: Choose from available audio input devices
 - **Persistent Settings**: Application remembers your preferences between sessions
 - **Qt-based User Interface**: Clean and responsive graphical interface
+- **Full Chat Persistence**: Both user transcriptions and AI responses are saved and restored between sessions
 
 ## Installation
 
@@ -101,6 +102,18 @@ The Voice Commander application features a clean, intuitive interface divided in
 The interface is designed to be straightforward while providing access to all necessary controls and feedback. The main window is resizable, with the conversation area automatically expanding to use available space.
 
 ## Recent Updates
+
+### May 2025 Updates
+1. **Improved UI Spacing Efficiency**:
+   - Optimized vertical space usage in the chat display
+   - Reduced padding for both single and multi-line messages
+   - Better calculation of row heights based on content
+   - More efficient display of multi-line text
+   
+2. **Enhanced Chat History Persistence**:
+   - AI responses are now saved along with user transcriptions
+   - Complete conversation history is restored between sessions
+   - Backward compatibility with older saved chat files
 
 ### March 2025 Updates
 

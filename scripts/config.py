@@ -10,15 +10,17 @@ LLM_SANDBOX_WORKING_FOLDER = "."  # TODO: Change where the LLM sandbox files are
 GROQ_API_KEY = ''  # Set through settings UI
 LLM_MODEL = "llama-3.3-70b-versatile"  # Set through settings UI
 TRANSCRIPTION_MODEL = "whisper-large-v3"  # Set through settings UI
-MAX_TRANSCRIPTION_NO_SPEECH_PROBABILITY = 0.14
+MAX_TRANSCRIPTION_NO_SPEECH_PROBABILITY = 0.30
 
-# Additional instructions for Transcription model (whisper)
+# Additional instructions for Transcription model (whisper) - can be set through UI
 UNFAMILIAR_WORDS = ("Some of the unfamilar words which might appear: "
                     "Mute, unmute, reset, copy, paste"
 )
 
 # Qt UI configuration
-UI_THEME = "light"  # Options: "light", "dark"
+UI_THEME = "dark"  # Options: "light", "dark"
+UI_ACCENT_COLOR = "#7F5AF0"  # Purple accent color
+UI_SECONDARY_COLOR = "#2CB67D"  # Teal secondary color
 UI_FONT_SIZE = 11
 UI_SAVE_WINDOW_POSITION = True
 

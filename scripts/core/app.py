@@ -795,7 +795,7 @@ class VoiceCommanderApp(QMainWindow):
         item_widget.setData(timestamp, text, audio_path)
 
         # Connect buttons
-        item_widget.copy_button.clicked.connect(lambda _, t=text: self.copy_to_clipboard(t))
+        item_widget.copy_button.clicked.connect(lambda _, w=item_widget: self.copy_to_clipboard(w.getText()))
         item_widget.play_button.clicked.connect(lambda _, p=audio_path, w=item_widget: self.play_audio(p, w))
         item_widget.transcribe_button.clicked.connect(lambda _, p=audio_path, w=item_widget: self.retranscribe_audio(p, w))
 
@@ -834,7 +834,7 @@ class VoiceCommanderApp(QMainWindow):
         item_widget.setData(timestamp, text, None) # AI responses don't have audio
         
         # Only connect copy button for AI responses
-        item_widget.copy_button.clicked.connect(lambda _, t=text: self.copy_to_clipboard(t))
+        item_widget.copy_button.clicked.connect(lambda _, w=item_widget: self.copy_to_clipboard(w.getText()))
         
         # Disable play and transcribe buttons for AI responses
         item_widget.play_button.setVisible(False)
